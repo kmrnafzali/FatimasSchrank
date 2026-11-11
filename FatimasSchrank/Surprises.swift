@@ -221,6 +221,7 @@ private struct Petal: View {
     let index: Int
     let size: CGSize
     @State private var fallen = false
+    @State private var visible = 0.0
 
     var body: some View {
         let seed = Double(index)
@@ -233,9 +234,14 @@ private struct Petal: View {
             .frame(width: 11, height: 16)
             .rotationEffect(.degrees(fallen ? 260 + seed * 20 : seed * 30))
             .position(x: startX + (fallen ? drift : 0), y: fallen ? size.height + 40 : -30)
-            .opacity(fallen ? 0.9 : 0)
-            .onAppear {
-                withAnimation(.easeIn(duration: duration).delay(delay)) { fallen = true }
+            .opacity(visible)
+            .task {
+                // Einblenden, fallen, und vor dem unteren Rand wieder ausblenden.
+                try? await Task.sleep(for: .milliseconds(Int(delay * 1000)))
+                withAnimation(.easeIn(duration: duration)) { fallen = true }
+                withAnimation(.easeOut(duration: 0.4)) { visible = 0.9 }
+                try? await Task.sleep(for: .milliseconds(Int(duration * 700)))
+                withAnimation(.easeIn(duration: duration * 0.25)) { visible = 0 }
             }
     }
 }
@@ -249,7 +255,11 @@ struct LettersView: View {
     @State private var wiggle: String?
 
     private var letters: [LoveLetter] {
-        Liebesbriefe.letters.sorted { $0.unlockDate > $1.unlockDate }
+        // Lesbare Briefe zuerst (neuester oben), danach die versiegelten in der Reihenfolge, in der sie sich öffnen.
+        let all = Liebesbriefe.letters
+        let open = all.filter { $0.isOpen() }.sorted { $0.unlockDate > $1.unlockDate }
+        let sealed = all.filter { !$0.isOpen() }.sorted { $0.unlockDate < $1.unlockDate }
+        return open + sealed
     }
 
     var body: some View {

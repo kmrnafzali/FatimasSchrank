@@ -35,7 +35,8 @@ struct ClosetView: View {
     private var settings: Settings { store.db.settings }
     private var items: [Garment] { store.garments(in: category) }
     private var shelfItems: [Garment] {
-        Array((store.garments(in: .bags) + store.garments(in: .accessories)).prefix(4))
+        // An besonderen Tagen steht rechts eine Karte, dann ist Platz für zwei Stücke.
+        Array((store.garments(in: .bags) + store.garments(in: .accessories)).prefix(special == nil ? 4 : 2))
     }
     private var special: SpecialDay? { SpecialDay.today() }
     private var hasUnreadLetter: Bool {
@@ -143,7 +144,7 @@ struct ClosetView: View {
                     }
                 }
                 .accessibilityAddTraits(.isHeader)
-            Text("\(store.activeGarments.count) Stücke · \(store.db.outfits.count) Outfits")
+            Text("\(store.activeGarments.count.stuecke) · \(store.db.outfits.count.outfits)")
                 .font(.footnote)
                 .foregroundStyle(Palette.creamSecondary)
         }
@@ -182,9 +183,6 @@ struct ClosetView: View {
                 }
                 Spacer(minLength: 0)
             }
-            if let special {
-                specialTag(special)
-            }
         }
         .clipShape(Rectangle())
         .overlay(alignment: .top) {
@@ -210,6 +208,9 @@ struct ClosetView: View {
                         .accessibilityAddTraits(.isButton)
                 }
                 Spacer(minLength: 0)
+            }
+            if let special {
+                specialCard(special)
             }
         }
         .padding(.horizontal, 18)
@@ -340,40 +341,55 @@ struct ClosetView: View {
         }
     }
 
-    private func specialTag(_ day: SpecialDay) -> some View {
-        HStack {
-            Spacer()
-            VStack(spacing: 0) {
-                Rectangle().fill(Palette.brass).frame(width: 1, height: 26)
-                PaperTag(rotation: 5, maxWidth: 120) {
-                    VStack(spacing: 4) {
-                        Image(systemName: "heart.fill")
-                            .foregroundStyle(Palette.rosePetal)
-                        Text(day.cardTitle)
-                            .font(.serif(.footnote))
-                            .foregroundStyle(Palette.ink)
-                    }
-                }
+    /// Kleine Karte, die an Geburtstag und Jahrestag auf dem Glasboden steht.
+    private func specialCard(_ day: SpecialDay) -> some View {
+        Button {
+            Haptic.success()
+            show(CardContent(eyebrow: day.cardTitle, text: day.card))
+        } label: {
+            VStack(spacing: 3) {
+                Image(systemName: "heart.fill")
+                    .font(.caption)
+                    .foregroundStyle(Palette.rosePetal)
+                Text(day.cardTitle)
+                    .font(.serif(.caption))
+                    .foregroundStyle(Palette.ink)
+                    .lineLimit(1)
             }
-            .padding(.trailing, 18)
-            .padding(.top, 96)
-            .onTapGesture {
-                Haptic.success()
-                show(CardContent(eyebrow: day.cardTitle, text: day.card))
-            }
-            .accessibilityElement(children: .combine)
-            .accessibilityAddTraits(.isButton)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            .background(
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(Palette.paper)
+                    .shadow(color: .black.opacity(0.3), radius: 5, x: 4, y: 5)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .strokeBorder(Palette.bronze.opacity(0.45), lineWidth: 0.75)
+            )
+            .rotationEffect(.degrees(-3), anchor: .bottom)
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Karte: \(day.cardTitle)")
     }
 
     // MARK: Schubladen
 
     private var drawers: some View {
         VStack(spacing: 2) {
+            // Obere Schublade: alle Stücke im Überblick.
             drawerFront(dot: false)
                 .frame(height: 46)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    Haptic.soft()
+                    showAll = true
+                }
+                .accessibilityLabel("Obere Schublade, alle Stücke")
+                .accessibilityAddTraits(.isButton)
             drawerFront(dot: hasUnreadLetter)
                 .frame(height: 46)
+                .contentShape(Rectangle())
                 .offset(y: drawerPulled ? 10 : 0)
                 .onTapGesture { pullDrawer() }
                 .accessibilityLabel(hasUnreadLetter ? "Unterste Schublade, etwas Neues liegt darin" : "Unterste Schublade")

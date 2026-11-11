@@ -32,7 +32,7 @@ struct OutfitsView: View {
                                         .font(.serif(.headline))
                                         .foregroundStyle(.primary)
                                         .lineLimit(1)
-                                    Text("\(outfit.garmentIDs.count) Stücke")
+                                    Text(outfit.garmentIDs.count.stuecke)
                                         .font(.footnote)
                                         .foregroundStyle(.secondary)
                                 }

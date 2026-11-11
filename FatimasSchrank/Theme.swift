@@ -315,12 +315,12 @@ struct GarmentImage: View {
         }
         .accessibilityLabel(garment.name)
         .task(id: file) {
+            guard !file.isEmpty else { return }
             if let cached = ImageCache.shared.get(file) {
                 image = cached
                 return
             }
-            if let loaded = await Store.loadImage(at: store.imageURL(file)) {
-                ImageCache.shared.set(loaded, file)
+            if let loaded = await ImageLoader.shared.load(store.imageURL(file), key: file) {
                 image = loaded
             }
         }

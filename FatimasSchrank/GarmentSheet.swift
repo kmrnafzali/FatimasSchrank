@@ -84,8 +84,13 @@ struct GarmentSheet: View {
         }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
+        .task {
+            // Erst öffnen, wenn dieses Blatt fertig eingeblendet ist.
+            guard startEditing else { return }
+            try? await Task.sleep(for: .milliseconds(450))
+            editing = true
+        }
         .onAppear {
-            if startEditing { editing = true }
             withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) { lifted = true }
             withAnimation(.spring(response: 0.9, dampingFraction: 0.22).delay(0.15)) { tagSwing = -2 }
         }

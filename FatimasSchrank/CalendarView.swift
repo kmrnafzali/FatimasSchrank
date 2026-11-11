@@ -42,7 +42,7 @@ struct CalendarView: View {
                         Spacer()
                         VStack(spacing: 2) {
                             Text(weekTitle).font(.serif(.headline))
-                            Label(place.name, systemImage: store.db.settings.placeMode == .auto ? "location.fill" : "mappin")
+                            Label(place.name, systemImage: store.db.settings.placeMode == .auto && location.latitude != nil ? "location.fill" : "mappin")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }

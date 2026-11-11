@@ -51,7 +51,7 @@ private struct AddGarmentFlow: ViewModifier {
                     Task { await run([.image(image)]) }
                 }
             }) {
-                CameraPicker { cameraImage = $0 }
+                CameraPicker(onImage: { cameraImage = $0 }, onDone: { showCamera = false })
                     .ignoresSafeArea()
             }
             .overlay {
@@ -100,10 +100,11 @@ private struct AddGarmentFlow: ViewModifier {
             } else {
                 failures += 1
             }
-            // Die Aufnahme soll man kurz sehen können.
+            // Die Aufnahme soll man kurz sehen können, bei vielen Fotos etwas kürzer.
+            let hold = sources.count == 1 ? 1.3 : 0.8
             let elapsed = Date().timeIntervalSince(started)
-            if elapsed < 1.3 {
-                try? await Task.sleep(for: .milliseconds(Int((1.3 - elapsed) * 1000)))
+            if elapsed < hold {
+                try? await Task.sleep(for: .milliseconds(Int((hold - elapsed) * 1000)))
             }
             Haptic.firm()
             withAnimation(.spring(response: 0.45, dampingFraction: 0.9)) { done += 1 }
@@ -230,7 +231,7 @@ private struct CutoutReveal: View {
 
 struct CameraPicker: UIViewControllerRepresentable {
     var onImage: (UIImage) -> Void
-    @Environment(\.dismiss) private var dismiss
+    var onDone: () -> Void
 
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let picker = UIImagePickerController()
@@ -253,11 +254,11 @@ struct CameraPicker: UIViewControllerRepresentable {
             if let image = info[.originalImage] as? UIImage {
                 parent.onImage(image)
             }
-            parent.dismiss()
+            parent.onDone()
         }
 
         func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
-            parent.dismiss()
+            parent.onDone()
         }
     }
 }

@@ -16,6 +16,43 @@ final class ImageCache: @unchecked Sendable {
     func removeAll() { cache.removeAllObjects() }
 }
 
+/// Lädt Bilder nacheinander auf einer eigenen Warteschlange.
+/// So blockiert das Entpacken weder die Oberfläche noch die Fäden von Swift Concurrency,
+/// und dieselbe Datei wird nie doppelt gleichzeitig entpackt.
+final class ImageLoader: @unchecked Sendable {
+    static let shared = ImageLoader()
+    private let queue = DispatchQueue(label: "de.kmrn.fatimasschrank.bilder", qos: .userInitiated)
+
+    func load(_ url: URL, key: String) async -> UIImage? {
+        await withCheckedContinuation { (continuation: CheckedContinuation<UIImage?, Never>) in
+            queue.async {
+                if let cached = ImageCache.shared.get(key) {
+                    continuation.resume(returning: cached)
+                    return
+                }
+                let image = Self.decode(url)
+                if let image { ImageCache.shared.set(image, key) }
+                continuation.resume(returning: image)
+            }
+        }
+    }
+
+    /// Entpackt vollständig, damit beim Anzeigen nichts mehr nachgeladen wird.
+    private static func decode(_ url: URL) -> UIImage? {
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: 4096,
+        ]
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, [kCGImageSourceShouldCache: false] as CFDictionary),
+              let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+            return UIImage(contentsOfFile: url.path)
+        }
+        return UIImage(cgImage: cg)
+    }
+}
+
 @MainActor
 @Observable
 final class Store {
@@ -61,24 +98,6 @@ final class Store {
         } catch {
             print("Speichern fehlgeschlagen: \(error)")
         }
-    }
-
-    nonisolated static func loadImage(at url: URL) async -> UIImage? {
-        await Task.detached(priority: .userInitiated) { () -> UIImage? in
-            // Vollständig im Hintergrund dekodieren, damit beim Anzeigen
-            // nichts mehr auf dem Hauptfaden entpackt werden muss.
-            let options: [CFString: Any] = [
-                kCGImageSourceCreateThumbnailFromImageAlways: true,
-                kCGImageSourceShouldCacheImmediately: true,
-                kCGImageSourceCreateThumbnailWithTransform: true,
-                kCGImageSourceThumbnailMaxPixelSize: 4096,
-            ]
-            guard let source = CGImageSourceCreateWithURL(url as CFURL, [kCGImageSourceShouldCache: false] as CFDictionary),
-                  let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
-                return UIImage(contentsOfFile: url.path)?.preparingForDisplay()
-            }
-            return UIImage(cgImage: cg)
-        }.value
     }
 
     func storageBytes() -> Int {

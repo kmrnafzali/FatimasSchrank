@@ -283,6 +283,13 @@ extension Date {
     }()
 }
 
+extension Int {
+    /// "1 Stück", "3 Stücke"
+    var stuecke: String { self == 1 ? "1 Stück" : "\(self) Stücke" }
+    /// "1 Outfit", "3 Outfits"
+    var outfits: String { self == 1 ? "1 Outfit" : "\(self) Outfits" }
+}
+
 extension Locale {
     /// Die App spricht immer Deutsch, auch wenn das iPhone auf Englisch steht.
     static let german = Locale(identifier: "de_AT")

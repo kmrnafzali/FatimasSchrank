@@ -36,6 +36,8 @@ enum ImagePipeline {
         let format = UIGraphicsImageRendererFormat.default()
         format.scale = 1
         format.opaque = opaque
+        // Normale 8-Bit-Farben: klein zu speichern und sicher als HEIC kodierbar.
+        format.preferredRange = .standard
         return UIGraphicsImageRenderer(size: target, format: format).image { _ in
             image.draw(in: CGRect(origin: .zero, size: target))
         }
