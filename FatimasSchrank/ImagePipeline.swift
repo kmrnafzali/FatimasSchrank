@@ -68,6 +68,9 @@ enum ImagePipeline {
 
     /// Behält die Teile, die mindestens 30 Prozent so groß sind wie das größte.
     private static func significantInstances(in mask: CVPixelBuffer, all: IndexSet) -> IndexSet? {
+        // Nur bei einem Byte pro Bildpunkt zählen, sonst lieber alles behalten.
+        guard all.count > 1,
+              CVPixelBufferGetPixelFormatType(mask) == kCVPixelFormatType_OneComponent8 else { return nil }
         CVPixelBufferLockBaseAddress(mask, .readOnly)
         defer { CVPixelBufferUnlockBaseAddress(mask, .readOnly) }
         guard let base = CVPixelBufferGetBaseAddress(mask) else { return nil }
@@ -79,10 +82,13 @@ enum ImagePipeline {
             let row = base.advanced(by: y * rowBytes).assumingMemoryBound(to: UInt8.self)
             for x in 0..<width { counts[Int(row[x])] += 1 }
         }
-        let candidates = all.filter { $0 < 256 }
+        let candidates: [Int] = all.filter { $0 > 0 && $0 < 256 }
         guard let largest = candidates.map({ counts[$0] }).max(), largest > 0 else { return nil }
-        let kept = candidates.filter { counts[$0] * 10 >= largest * 3 }
-        return kept.isEmpty ? nil : IndexSet(kept)
+        var kept = IndexSet()
+        for index in candidates where counts[index] * 10 >= largest * 3 {
+            kept.insert(index)
+        }
+        return kept.isEmpty ? nil : kept
     }
 
     /// Schneidet den durchsichtigen Rand ab, damit das Stück genau am Bügel hängt.
@@ -92,7 +98,7 @@ enum ImagePipeline {
         let h = cg.height
         guard w > 0, h > 0 else { return image }
         var data = [UInt8](repeating: 0, count: w * h * 4)
-        let box: (minX: Int, minY: Int, maxX: Int, maxY: Int)? = data.withUnsafeMutableBytes { buffer in
+        let found: CGRect? = data.withUnsafeMutableBytes { (buffer: UnsafeMutableRawBufferPointer) -> CGRect? in
             guard let ctx = CGContext(
                 data: buffer.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
                 space: CGColorSpaceCreateDeviceRGB(),
@@ -109,11 +115,10 @@ enum ImagePipeline {
                     maxY = y
                 }
             }
-            return maxX >= minX && maxY >= minY ? (minX, minY, maxX, maxY) : nil
+            guard maxX >= minX, maxY >= minY else { return nil }
+            return CGRect(x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1)
         }
-        guard let box else { return image }
-        let rect = CGRect(x: box.minX, y: box.minY, width: box.maxX - box.minX + 1, height: box.maxY - box.minY + 1)
-        guard let cropped = cg.cropping(to: rect) else { return image }
+        guard let rect = found, let cropped = cg.cropping(to: rect) else { return image }
         return UIImage(cgImage: cropped)
     }
 
