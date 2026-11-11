@@ -87,6 +87,10 @@ enum ImagePipeline {
 
     /// HEIC, wenn die Transparenz dabei erhalten bleibt, sonst PNG.
     static func encode(_ image: UIImage) -> (data: Data, ext: String)? {
+        #if targetEnvironment(simulator)
+        // Der Simulator auf GitHub entpackt HEIC extrem langsam, dort reicht PNG.
+        return image.pngData().map { ($0, "png") }
+        #else
         guard let cg = image.cgImage else {
             return image.pngData().map { ($0, "png") }
         }
@@ -95,6 +99,7 @@ enum ImagePipeline {
             return (heic, "heic")
         }
         return image.pngData().map { ($0, "png") }
+        #endif
     }
 
     private static func heic(_ cg: CGImage) -> Data? {
