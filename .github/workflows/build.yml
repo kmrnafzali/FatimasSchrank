@@ -1,0 +1,158 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  ipa:
+    name: IPA bauen
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Neueste stabile Xcode-Version wählen
+        shell: bash
+        run: |
+          XC=$(ls -d /Applications/Xcode_*.app | grep -v -i -E 'beta|candidate|_rc|preview' | sort -V | tail -1)
+          sudo xcode-select -s "$XC"
+          echo "::notice::$(xcodebuild -version | tr '\n' ' ') | iOS-SDK $(xcrun --sdk iphoneos --show-sdk-version)"
+
+      - name: Projekt erzeugen
+        shell: bash
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Bauen (unsigniert)
+        shell: bash
+        run: |
+          if ! xcodebuild \
+            -project FatimasSchrank.xcodeproj \
+            -scheme FatimasSchrank \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            > build.log 2>&1; then
+            grep -E "error:" build.log | sed -E 's#^.*/FatimasSchrank/##' | sort -u | head -n 30 | while IFS= read -r line; do
+              echo "::error::${line}"
+            done
+            tail -n 30 build.log
+            exit 1
+          fi
+          echo "::notice::$(grep -c 'warning:' build.log || true) Warnungen"
+
+      - name: IPA verpacken
+        shell: bash
+        run: |
+          APP=$(find build/Build/Products -maxdepth 3 -name "FatimasSchrank.app" | head -1)
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          zip -qr FatimasSchrank.ipa Payload
+          ls -lh FatimasSchrank.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FatimasSchrank-ipa
+          path: FatimasSchrank.ipa
+
+      - name: Release aktualisieren
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Neueste Version
+          body: Unsignierte IPA zum Installieren mit AltStore.
+          files: FatimasSchrank.ipa
+
+  vorschau:
+    name: Bildschirmfotos im Simulator
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Neueste stabile Xcode-Version wählen
+        shell: bash
+        run: |
+          XC=$(ls -d /Applications/Xcode_*.app | grep -v -i -E 'beta|candidate|_rc|preview' | sort -V | tail -1)
+          sudo xcode-select -s "$XC"
+
+      - name: Projekt erzeugen
+        shell: bash
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Für den Simulator bauen
+        shell: bash
+        run: |
+          if ! xcodebuild \
+            -project FatimasSchrank.xcodeproj \
+            -scheme FatimasSchrank \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build-sim \
+            CODE_SIGNING_ALLOWED=NO \
+            > sim.log 2>&1; then
+            grep -E "error:" sim.log | sed -E 's#^.*/FatimasSchrank/##' | sort -u | head -n 30 | while IFS= read -r line; do
+              echo "::error::${line}"
+            done
+            exit 1
+          fi
+
+      - name: App starten und fotografieren
+        shell: bash
+        run: |
+          APP=$(find build-sim/Build/Products -maxdepth 2 -name "FatimasSchrank.app" | head -1)
+          LIST=$(xcrun simctl list devices available)
+          LINE=$(echo "$LIST" | grep -E "iPhone [0-9]+ Pro Max" | tail -1 || true)
+          if [ -z "$LINE" ]; then LINE=$(echo "$LIST" | grep -E "iPhone" | tail -1 || true); fi
+          UDID=$(echo "$LINE" | grep -oE '[0-9A-F]{8}-[0-9A-F-]{27}' | head -1)
+          echo "::notice::Simulator: $(echo $LINE | cut -c1-70)"
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b > /dev/null
+          xcrun simctl status_bar "$UDID" override --time "9:41" --batteryState charged --batteryLevel 100 --cellularBars 4 || true
+          xcrun simctl install "$UDID" "$APP"
+          mkdir -p shots
+          ID=de.kmrn.fatimasschrank
+          shot() {
+            name=$1; shift
+            xcrun simctl terminate "$UDID" $ID > /dev/null 2>&1 || true
+            xcrun simctl launch "$UDID" $ID -demo "$@" > /dev/null
+            sleep 7
+            xcrun simctl io "$UDID" screenshot "shots/$name.png" > /dev/null
+          }
+          xcrun simctl ui "$UDID" appearance light
+          shot 01-tueren -screen doors
+          shot 02-schrank -noDoors
+          shot 03-teil -noDoors -open garment
+          shot 04-outfits -noDoors -tab 1
+          shot 05-outfit-builder -noDoors -tab 1 -open builder
+          shot 06-kalender -noDoors -tab 2
+          shot 07-mehr -noDoors -tab 3
+          shot 08-widmung -noDoors -open welcome
+          shot 09-geheimfach -noDoors -open drawer
+          shot 10-alle-teile -noDoors -open all
+          xcrun simctl ui "$UDID" appearance dark
+          shot 11-kalender-dunkel -noDoors -tab 2
+          shot 12-teil-dunkel -noDoors -open garment
+          ls -la shots
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Bildschirmfotos
+          path: shots/*.png
+
+      - name: Bildschirmfotos ablegen
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: vorschau
+          name: Vorschau (automatische Bildschirmfotos)
+          prerelease: true
+          files: shots/*.png
