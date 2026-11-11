@@ -11,6 +11,7 @@ struct FatimasSchrankApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
+                .environment(\.locale, .german)
                 .environment(store)
                 .environment(app)
                 .environment(location)

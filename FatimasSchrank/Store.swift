@@ -1,5 +1,6 @@
 import SwiftUI
 import Observation
+import ImageIO
 import ZIPFoundation
 
 /// Zwischenspeicher für geladene Bilder. NSCache ist threadsicher.
@@ -64,8 +65,13 @@ final class Store {
 
     nonisolated static func loadImage(at url: URL) async -> UIImage? {
         await Task.detached(priority: .userInitiated) { () -> UIImage? in
-            guard let image = UIImage(contentsOfFile: url.path) else { return nil }
-            return image.preparingForDisplay() ?? image
+            if let image = UIImage(contentsOfFile: url.path) {
+                return image.preparingForDisplay() ?? image
+            }
+            // Ersatzweg über ImageIO, falls UIImage die Datei nicht direkt lesen kann.
+            guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+                  let cg = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }
+            return UIImage(cgImage: cg)
         }.value
     }
 

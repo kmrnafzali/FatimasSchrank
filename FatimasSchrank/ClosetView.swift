@@ -386,8 +386,13 @@ struct ClosetView: View {
 
     private func drawerFront(dot: Bool) -> some View {
         ZStack {
-            Rectangle().fill(LinearGradient(colors: [Palette.oakTop, Palette.oakBottom], startPoint: .top, endPoint: .bottom))
-            Image("Wood").resizable().scaledToFill().opacity(0.55)
+            // Das Holzbild liegt als Overlay, damit es die Schubladengröße nicht verändert.
+            Rectangle()
+                .fill(LinearGradient(colors: [Palette.oakTop, Palette.oakBottom], startPoint: .top, endPoint: .bottom))
+                .overlay {
+                    Image("Wood").resizable().scaledToFill().opacity(0.55)
+                }
+                .clipped()
             LinearGradient(colors: [.black.opacity(0.45), .clear], startPoint: .top, endPoint: .center)
             Capsule()
                 .fill(Palette.brassGradient)

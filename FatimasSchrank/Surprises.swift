@@ -90,9 +90,14 @@ struct DoorsView: View {
 
     private func door(handleOnTrailing: Bool) -> some View {
         ZStack {
-            Image("Wood")
-                .resizable()
-                .scaledToFill()
+            // Das Holzbild liegt als Overlay, damit es die Türbreite nicht verändert.
+            Palette.oakBottom
+                .overlay {
+                    Image("Wood")
+                        .resizable()
+                        .scaledToFill()
+                }
+                .clipped()
             LinearGradient(colors: [.black.opacity(0.05), .black.opacity(0.35)], startPoint: .top, endPoint: .bottom)
             RoundedRectangle(cornerRadius: 2)
                 .strokeBorder(Color(hex: 0x5F4129).opacity(0.7), lineWidth: 1.5)
@@ -320,7 +325,7 @@ struct LettersView: View {
                     Text(open ? letter.title : "Versiegelt")
                         .font(.serif(.headline))
                         .foregroundStyle(Palette.ink)
-                    Text(open ? (unread ? "Neu" : "Gelesen") : "Öffnet sich am \(letter.unlockDate.formatted(.dateTime.day().month(.wide).year()))")
+                    Text(open ? (unread ? "Neu" : "Gelesen") : "Öffnet sich am \(letter.unlockDate.german(.dateTime.day().month(.wide).year()))")
                         .font(.footnote)
                         .foregroundStyle(unread ? Palette.bronze : Palette.inkSecondary)
                 }

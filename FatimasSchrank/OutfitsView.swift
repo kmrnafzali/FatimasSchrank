@@ -61,8 +61,8 @@ struct OutfitsView: View {
             .sheet(item: $selected) { outfit in
                 OutfitDetail(id: outfit.id)
             }
-            .task {
-                if app.tab == 1, app.argument("-open") == "builder" {
+            .task(id: app.tab) {
+                if app.tab == 1, app.argument("-open") == "builder", !showBuilder {
                     try? await Task.sleep(for: .milliseconds(600))
                     showBuilder = true
                 }

@@ -25,7 +25,7 @@ struct CalendarView: View {
     private var weekTitle: String {
         guard let last = days.last else { return "" }
         let f = Date.FormatStyle().day().month(.abbreviated)
-        return "\(weekStart.formatted(f)) – \(last.formatted(f))"
+        return "\(weekStart.german(f)) – \(last.german(f))"
     }
 
     var body: some View {
@@ -111,7 +111,7 @@ struct CalendarView: View {
     private func dayHeader(_ day: Date) -> some View {
         let isToday = Calendar.german.isDateInToday(day)
         return HStack(alignment: .firstTextBaseline) {
-            Text(day.formatted(.dateTime.weekday(.wide).day().month(.wide)))
+            Text(day.german(.dateTime.weekday(.wide).day().month(.wide)))
                 .font(.serif(.subheadline, weight: isToday ? .semibold : .regular))
                 .foregroundStyle(isToday ? Palette.accent : .secondary)
                 .textCase(nil)
@@ -268,7 +268,7 @@ struct OutfitPickerSheet: View {
                     }
                 }
             }
-            .navigationTitle(date.formatted(.dateTime.weekday(.wide).day().month(.wide)))
+            .navigationTitle(date.german(.dateTime.weekday(.wide).day().month(.wide)))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

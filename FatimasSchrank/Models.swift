@@ -283,10 +283,22 @@ extension Date {
     }()
 }
 
+extension Locale {
+    /// Die App spricht immer Deutsch, auch wenn das iPhone auf Englisch steht.
+    static let german = Locale(identifier: "de_AT")
+}
+
+extension Date {
+    /// Datum als deutscher Text, z. B. "Mittwoch, 11. November".
+    func german(_ style: Date.FormatStyle) -> String {
+        formatted(style.locale(.german))
+    }
+}
+
 extension Calendar {
     static var german: Calendar {
         var c = Calendar(identifier: .gregorian)
-        c.locale = Locale(identifier: "de_AT")
+        c.locale = .german
         c.firstWeekday = 2
         return c
     }

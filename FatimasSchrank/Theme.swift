@@ -93,9 +93,12 @@ struct WoodBackground: View {
     var body: some View {
         ZStack {
             Palette.oakBottom
-            Image("Wood")
-                .resizable()
-                .scaledToFill()
+                .overlay {
+                    Image("Wood")
+                        .resizable()
+                        .scaledToFill()
+                }
+                .clipped()
             LinearGradient(
                 colors: [.black.opacity(shade * 0.2), .black.opacity(shade)],
                 startPoint: .top, endPoint: .bottom
