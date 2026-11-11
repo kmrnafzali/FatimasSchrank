@@ -125,20 +125,20 @@ jobs:
             name=$1; shift
             xcrun simctl terminate "$UDID" $ID > /dev/null 2>&1 || true
             xcrun simctl launch "$UDID" $ID -demo "$@" > /dev/null
-            sleep 7
+            sleep ${WAIT:-7}
             xcrun simctl io "$UDID" screenshot "shots/$name.png" > /dev/null
           }
           xcrun simctl ui "$UDID" appearance light
           shot 01-tueren -screen doors
           shot 02-schrank -noDoors
           shot 03-teil -noDoors -open garment
-          shot 04-outfits -noDoors -tab 1
-          shot 05-outfit-builder -noDoors -tab 1 -open builder
+          WAIT=15 shot 04-outfits -noDoors -tab 1
+          WAIT=15 shot 05-outfit-builder -noDoors -tab 1 -open builder
           shot 06-kalender -noDoors -tab 2
           shot 07-mehr -noDoors -tab 3
           shot 08-widmung -noDoors -open welcome
           shot 09-geheimfach -noDoors -open drawer
-          shot 10-alle-teile -noDoors -open all
+          WAIT=15 shot 10-alle-teile -noDoors -open all
           xcrun simctl ui "$UDID" appearance dark
           shot 11-kalender-dunkel -noDoors -tab 2
           shot 12-teil-dunkel -noDoors -open garment

@@ -65,12 +65,18 @@ final class Store {
 
     nonisolated static func loadImage(at url: URL) async -> UIImage? {
         await Task.detached(priority: .userInitiated) { () -> UIImage? in
-            if let image = UIImage(contentsOfFile: url.path) {
-                return image.preparingForDisplay() ?? image
+            // Vollständig im Hintergrund dekodieren, damit beim Anzeigen
+            // nichts mehr auf dem Hauptfaden entpackt werden muss.
+            let options: [CFString: Any] = [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceShouldCacheImmediately: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: 4096,
+            ]
+            guard let source = CGImageSourceCreateWithURL(url as CFURL, [kCGImageSourceShouldCache: false] as CFDictionary),
+                  let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+                return UIImage(contentsOfFile: url.path)?.preparingForDisplay()
             }
-            // Ersatzweg über ImageIO, falls UIImage die Datei nicht direkt lesen kann.
-            guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
-                  let cg = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }
             return UIImage(cgImage: cg)
         }.value
     }
