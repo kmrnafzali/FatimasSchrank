@@ -51,6 +51,9 @@ struct ClosetView: View {
                 niche
                 drawers
             }
+            // Auf breiten Bildschirmen bleibt der Schrank in der Mitte.
+            .frame(maxWidth: 560)
+            .frame(maxWidth: .infinity)
             .background(WoodBackground())
             .overlay {
                 if showPetals { PetalsView() }
@@ -185,10 +188,16 @@ struct ClosetView: View {
             }
         }
         .clipShape(Rectangle())
+        .overlay {
+            Rectangle().strokeBorder(Palette.brass.opacity(0.8), lineWidth: 1)
+        }
         .overlay(alignment: .top) {
             Rectangle().fill(Palette.oakEdge).frame(height: 6)
         }
-        .padding(.horizontal, 14)
+        // Die weit geöffneten Türen stehen links und rechts neben dem Korpus.
+        .overlay(alignment: .topLeading) { CabinetDoor(side: .leading) }
+        .overlay(alignment: .topTrailing) { CabinetDoor(side: .trailing) }
+        .padding(.horizontal, 46)
         .frame(maxHeight: .infinity)
     }
 
@@ -197,7 +206,7 @@ struct ClosetView: View {
             if shelfItems.isEmpty {
                 Text("Taschen und Accessoires liegen hier oben.")
                     .font(.footnote)
-                    .foregroundStyle(Palette.inkSecondary)
+                    .foregroundStyle(Palette.creamSecondary)
                     .frame(maxWidth: .infinity)
             } else {
                 ForEach(shelfItems) { g in
@@ -305,11 +314,11 @@ struct ClosetView: View {
         VStack(spacing: 8) {
             Text("Hier ist noch Platz")
                 .font(.serif(.title3))
-                .foregroundStyle(Palette.ink)
+                .foregroundStyle(Palette.cream)
             Text("Tippe oben auf Plus. Am besten legst du das Stück flach auf eine ruhige, helle Fläche, ohne Bügel.")
                 .font(.footnote)
                 .multilineTextAlignment(.center)
-                .foregroundStyle(Palette.inkSecondary)
+                .foregroundStyle(Palette.creamSecondary)
         }
         .padding(.horizontal, 40)
         .allowsHitTesting(false)
@@ -395,7 +404,7 @@ struct ClosetView: View {
                 .accessibilityLabel(hasUnreadLetter ? "Unterste Schublade, etwas Neues liegt darin" : "Unterste Schublade")
                 .accessibilityAddTraits(.isButton)
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, 46)
         .padding(.top, 2)
         .padding(.bottom, 8)
     }
@@ -406,10 +415,11 @@ struct ClosetView: View {
             Rectangle()
                 .fill(LinearGradient(colors: [Palette.oakTop, Palette.oakBottom], startPoint: .top, endPoint: .bottom))
                 .overlay {
-                    Image("Wood").resizable().scaledToFill().opacity(0.55)
+                    Image("Wood").resizable().scaledToFill().opacity(0.14)
                 }
                 .clipped()
-            LinearGradient(colors: [.black.opacity(0.45), .clear], startPoint: .top, endPoint: .center)
+            LinearGradient(colors: [.black.opacity(0.3), .clear], startPoint: .top, endPoint: .center)
+            Rectangle().strokeBorder(Palette.brass.opacity(0.4), lineWidth: 1)
             Capsule()
                 .fill(Palette.brassGradient)
                 .frame(width: 64, height: 5)

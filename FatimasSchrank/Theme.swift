@@ -30,17 +30,21 @@ extension Color {
 
 enum Palette {
     // Korpus
-    static let oakTop = Color(hex: 0x2B2623)
-    static let oakBottom = Color(hex: 0x191614)
-    static let oakEdge = Color(hex: 0x151211)
+    static let oakTop = Color(hex: 0x4B1020)
+    static let oakBottom = Color(hex: 0x2D0913)
+    static let oakEdge = Color(hex: 0x22060D)
+    static let lacquer = LinearGradient(
+        colors: [Color(hex: 0x5C1628), Color(hex: 0x4B1020), Color(hex: 0x2D0913)],
+        startPoint: .top, endPoint: .bottom
+    )
 
     // Rückwand
-    static let wallTop = Color(hex: 0xF3E8D8)
-    static let wallMid = Color(hex: 0xD3C3AE)
-    static let wallBottom = Color(hex: 0x93826E)
-    static let roseTop = Color(hex: 0xF8DEDA)
-    static let roseMid = Color(hex: 0xDDB4AF)
-    static let roseBottom = Color(hex: 0x9C7671)
+    static let wallTop = Color(hex: 0x54403E)
+    static let wallMid = Color(hex: 0x2F2325)
+    static let wallBottom = Color(hex: 0x1E1517)
+    static let roseTop = Color(hex: 0x6E2A3A)
+    static let roseMid = Color(hex: 0x40161F)
+    static let roseBottom = Color(hex: 0x24090F)
 
     // Licht und Metall
     static let led = Color(hex: 0xFFF3D6)
@@ -59,8 +63,8 @@ enum Palette {
 
     // Flächen
     static let paper = Color(hex: 0xFBF7EF)
-    static let sheet = Color.adaptive(light: 0xF6F1E8, dark: 0x1B1816)
-    static let card = Color.adaptive(light: 0xFFFDF9, dark: 0x262220)
+    static let sheet = Color.adaptive(light: 0xF6F1E8, dark: 0x1A0A0E)
+    static let card = Color.adaptive(light: 0xFFFDF9, dark: 0x2A1519)
     static let accent = Color.adaptive(light: 0x7A5F33, dark: 0xECD3A0)
     static let rosePetal = Color(hex: 0xE8A7AE)
 
@@ -92,11 +96,14 @@ struct WoodBackground: View {
 
     var body: some View {
         ZStack {
-            Palette.oakBottom
+            // Weinroter Lack mit einem Hauch Maserung darunter.
+            Rectangle()
+                .fill(Palette.lacquer)
                 .overlay {
                     Image("Wood")
                         .resizable()
                         .scaledToFill()
+                        .opacity(0.12)
                 }
                 .clipped()
             LinearGradient(
@@ -121,7 +128,7 @@ struct BackWall: View {
                 startPoint: .top, endPoint: .bottom
             )
             RadialGradient(
-                colors: [Palette.led.opacity(0.85), Palette.led.opacity(0.12), .clear],
+                colors: [Palette.led.opacity(0.42), Palette.led.opacity(0.06), .clear],
                 center: .top, startRadius: 0, endRadius: 460
             )
             LinearGradient(
@@ -186,7 +193,7 @@ struct Hanger: View {
     var body: some View {
         ZStack {
             HangerBar()
-                .stroke(Color(hex: 0x221E1B), style: StrokeStyle(lineWidth: 4.5, lineCap: .round))
+                .stroke(Palette.brassGradient, style: StrokeStyle(lineWidth: 3, lineCap: .round))
             HangerHook()
                 .stroke(Palette.brassGradient, style: StrokeStyle(lineWidth: 2.2, lineCap: .round))
         }
@@ -215,6 +222,44 @@ struct HangerBar: Shape {
         p.addQuadCurve(to: CGPoint(x: cx, y: r.minY + 17), control: CGPoint(x: cx - r.width * 0.22, y: r.minY + 19))
         p.addQuadCurve(to: CGPoint(x: r.maxX - 3, y: r.maxY - 2), control: CGPoint(x: cx + r.width * 0.22, y: r.minY + 19))
         return p
+    }
+}
+
+/// Eine weit geöffnete Schranktür mit Spiegel auf der Innenseite.
+struct CabinetDoor: View {
+    enum Side { case leading, trailing }
+    let side: Side
+
+    var body: some View {
+        ZStack {
+            Rectangle()
+                .fill(LinearGradient(colors: [Color(hex: 0x3A0D1A), Color(hex: 0x22060D)], startPoint: .top, endPoint: .bottom))
+            Rectangle()
+                .strokeBorder(Palette.brass.opacity(0.55), lineWidth: 1)
+            Rectangle()
+                .fill(LinearGradient(
+                    colors: [Color(hex: 0x7F7570), Color(hex: 0x3E3532), Color(hex: 0x8A807A), Color(hex: 0x2F2927)],
+                    startPoint: .topLeading, endPoint: .bottomTrailing
+                ))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 18)
+                .overlay(
+                    Rectangle()
+                        .strokeBorder(Palette.brass, lineWidth: 1.5)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 18)
+                )
+        }
+        .frame(width: 84)
+        .frame(maxHeight: .infinity)
+        .rotation3DEffect(
+            .degrees(side == .leading ? -112 : 112),
+            axis: (x: 0, y: 1, z: 0),
+            anchor: side == .leading ? .leading : .trailing,
+            perspective: 0.45
+        )
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 

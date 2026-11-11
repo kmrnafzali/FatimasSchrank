@@ -91,16 +91,18 @@ struct DoorsView: View {
     private func door(handleOnTrailing: Bool) -> some View {
         ZStack {
             // Das Holzbild liegt als Overlay, damit es die Türbreite nicht verändert.
-            Palette.oakBottom
+            Rectangle()
+                .fill(Palette.lacquer)
                 .overlay {
                     Image("Wood")
                         .resizable()
                         .scaledToFill()
+                        .opacity(0.12)
                 }
                 .clipped()
             LinearGradient(colors: [.black.opacity(0.05), .black.opacity(0.35)], startPoint: .top, endPoint: .bottom)
             RoundedRectangle(cornerRadius: 2)
-                .strokeBorder(Color(hex: 0x5F4129).opacity(0.7), lineWidth: 1.5)
+                .strokeBorder(Palette.brass.opacity(0.55), lineWidth: 1.5)
                 .padding(18)
             HStack {
                 if handleOnTrailing { Spacer() }
