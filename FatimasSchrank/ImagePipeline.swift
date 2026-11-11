@@ -10,6 +10,10 @@ enum ImagePipeline {
     struct Prepared {
         let image: UIImage
         let isCutout: Bool
+        /// Erkannte Kategorie, nil wenn die Erkennung unsicher war.
+        var category: Category? = nil
+        /// Hauptfarbe und, falls deutlich vorhanden, eine zweite.
+        var colors: [GarmentColor] = []
     }
 
     /// Lädt ein Foto speicherschonend direkt in kleiner Größe.
@@ -124,10 +128,91 @@ enum ImagePipeline {
 
     static func prepare(_ image: UIImage) -> Prepared {
         let base = scaled(image, maxSide: 1600)
+        let category = base.cgImage.flatMap { classify($0) }
         if let cut = cutout(base) {
-            return Prepared(image: scaled(cut, maxSide: 1200), isCutout: true)
+            let small = scaled(cut, maxSide: 1200)
+            return Prepared(image: small, isCutout: true, category: category, colors: dominantColors(small, cutout: true))
         }
-        return Prepared(image: scaled(base, maxSide: 1200, opaque: true), isCutout: false)
+        return Prepared(image: scaled(base, maxSide: 1200, opaque: true), isCutout: false,
+                        category: category, colors: dominantColors(base, cutout: false))
+    }
+
+    // MARK: Erkennen
+
+    /// Schlüsselwörter aus Apples Bilderkennung, je Kategorie.
+    private static let keywords: [(Category, Set<String>)] = [
+        (.shoes, ["shoe", "shoes", "sneaker", "sneakers", "boot", "boots", "sandal", "sandals", "heel", "heels",
+                  "loafer", "loafers", "footwear", "slipper", "slippers", "pump", "pumps", "stiletto"]),
+        (.bags, ["bag", "handbag", "purse", "backpack", "clutch", "tote", "wallet", "satchel", "luggage"]),
+        (.accessories, ["hat", "cap", "scarf", "sunglasses", "eyeglasses", "glasses", "jewelry", "necklace",
+                        "bracelet", "earring", "earrings", "watch", "belt", "glove", "gloves", "beanie", "headband"]),
+        (.dresses, ["dress", "gown", "sundress", "jumpsuit"]),
+        (.outerwear, ["coat", "jacket", "blazer", "parka", "raincoat", "overcoat", "trenchcoat", "windbreaker", "poncho"]),
+        (.bottoms, ["jeans", "pants", "trousers", "shorts", "skirt", "leggings", "denim", "miniskirt"]),
+        (.tops, ["shirt", "blouse", "sweater", "sweatshirt", "hoodie", "top", "polo", "tank", "jersey",
+                 "cardigan", "pullover", "tee", "turtleneck", "camisole"]),
+    ]
+
+    /// Ordnet ein Foto einer Kategorie zu, wenn Apples Erkennung sich einigermaßen sicher ist.
+    static func classify(_ cg: CGImage) -> Category? {
+        let request = VNClassifyImageRequest()
+        let handler = VNImageRequestHandler(cgImage: cg, options: [:])
+        guard (try? handler.perform([request])) != nil, let results = request.results else { return nil }
+        var scores: [Category: Float] = [:]
+        for observation in results where observation.confidence > 0.05 {
+            let words = Set(observation.identifier.lowercased()
+                .split(whereSeparator: { !$0.isLetter })
+                .map(String.init))
+            for (category, keys) in keywords where !words.isDisjoint(with: keys) {
+                scores[category] = max(scores[category] ?? 0, observation.confidence)
+            }
+        }
+        guard let best = scores.max(by: { $0.value < $1.value }), best.value >= 0.15 else { return nil }
+        return best.key
+    }
+
+    /// Häufigste Farben im Bild. Beim freigestellten Bild nur die sichtbaren Pixel, sonst die Bildmitte.
+    static func dominantColors(_ image: UIImage, cutout: Bool) -> [GarmentColor] {
+        guard let full = image.cgImage else { return [] }
+        var source = full
+        if !cutout {
+            let w = CGFloat(full.width), h = CGFloat(full.height)
+            source = full.cropping(to: CGRect(x: w * 0.25, y: h * 0.25, width: w * 0.5, height: h * 0.5)) ?? full
+        }
+        let side = 48
+        var data = [UInt8](repeating: 0, count: side * side * 4)
+        let drawn: Bool = data.withUnsafeMutableBytes { (buffer: UnsafeMutableRawBufferPointer) -> Bool in
+            guard let ctx = CGContext(
+                data: buffer.baseAddress, width: side, height: side, bitsPerComponent: 8, bytesPerRow: side * 4,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ) else { return false }
+            ctx.interpolationQuality = .medium
+            ctx.draw(source, in: CGRect(x: 0, y: 0, width: side, height: side))
+            return true
+        }
+        guard drawn else { return [] }
+        var votes: [GarmentColor: Int] = [:]
+        var total = 0
+        var i = 0
+        while i < data.count {
+            let a = Int(data[i + 3])
+            if a > 200 {
+                let r = min(255, Int(data[i]) * 255 / a)
+                let g = min(255, Int(data[i + 1]) * 255 / a)
+                let b = min(255, Int(data[i + 2]) * 255 / a)
+                votes[GarmentColor.nearest(red: r, green: g, blue: b), default: 0] += 1
+                total += 1
+            }
+            i += 4
+        }
+        guard total >= 30 else { return [] }
+        let ranked = votes.sorted { $0.value > $1.value }
+        var result = [ranked[0].key]
+        if ranked.count > 1, ranked[1].value * 4 >= total {
+            result.append(ranked[1].key)
+        }
+        return result
     }
 
     /// Schreibt Vollbild und Vorschau. Gibt die Dateinamen zurück.

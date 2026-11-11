@@ -127,7 +127,7 @@ final class Store {
     }
 
     @discardableResult
-    func addGarment(image: UIImage, category: Category, name: String) async -> Garment? {
+    func addGarment(image: UIImage, category: Category, name: String, colors: [GarmentColor] = []) async -> Garment? {
         let id = UUID()
         let dir = imagesURL
         let files = await Task.detached(priority: .userInitiated) {
@@ -138,6 +138,7 @@ final class Store {
         g.id = id
         g.imageFile = files.full
         g.thumbFile = files.thumb
+        g.colors = colors
         db.garments.insert(g, at: 0)
         save()
         return g

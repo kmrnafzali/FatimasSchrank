@@ -96,6 +96,8 @@ struct ClosetView: View {
         }
         .toolbarColorScheme(.dark, for: .tabBar)
         .addGarmentFlow(category: category, showCamera: $showCamera, showPicker: $showPicker) { single in
+            // Zur erkannten Kategorie wechseln, damit das neue Stück sichtbar ist.
+            category = single.category
             editAfterAdd = single
         }
         .sheet(item: $selected) { g in

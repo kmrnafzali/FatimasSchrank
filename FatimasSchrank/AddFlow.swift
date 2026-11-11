@@ -32,6 +32,7 @@ private struct AddGarmentFlow: ViewModifier {
     @State private var total = 0
     @State private var done = 0
     @State private var current: UIImage?
+    @State private var currentDetail: String?
     @State private var revealID = 0
     @State private var failures = 0
     @State private var message: String?
@@ -56,7 +57,7 @@ private struct AddGarmentFlow: ViewModifier {
             }
             .overlay {
                 if running {
-                    ImportOverlay(total: total, done: done, image: current, revealID: revealID)
+                    ImportOverlay(total: total, done: done, image: current, detail: currentDetail, revealID: revealID)
                         .transition(.opacity)
                 }
             }
@@ -88,14 +89,17 @@ private struct AddGarmentFlow: ViewModifier {
                 ImagePipeline.prepare(photo)
             }.value
             if !prepared.isCutout { cutoutFailed += 1 }
+            // Erkannte Kategorie hat Vorrang, sonst die gerade gewählte.
+            let detected = prepared.category ?? category
+            let name = GarmentColor.suggestedName(for: detected, colors: prepared.colors)
             withAnimation(.spring(response: 0.5, dampingFraction: 0.85)) {
                 current = prepared.image
+                currentDetail = name
                 revealID += 1
             }
             Haptic.light()
             let started = Date()
-            let name = sources.count == 1 ? "" : category.singular
-            if let g = await store.addGarment(image: prepared.image, category: category, name: name.isEmpty ? category.singular : name) {
+            if let g = await store.addGarment(image: prepared.image, category: detected, name: name, colors: prepared.colors) {
                 lastAdded = g
             } else {
                 failures += 1
@@ -112,6 +116,7 @@ private struct AddGarmentFlow: ViewModifier {
         withAnimation(.easeOut(duration: 0.3)) {
             running = false
             current = nil
+            currentDetail = nil
         }
         app.swayPulse += 1
 
@@ -153,6 +158,7 @@ private struct ImportOverlay: View {
     let total: Int
     let done: Int
     let image: UIImage?
+    let detail: String?
     let revealID: Int
 
     var body: some View {
@@ -180,6 +186,12 @@ private struct ImportOverlay: View {
                     Text(image == nil ? "Wird vorbereitet" : "Kommt in deinen Schrank")
                         .font(.serif(.title3))
                         .foregroundStyle(Palette.cream)
+                    if image != nil, let detail {
+                        Text("Erkannt: \(detail)")
+                            .font(.footnote)
+                            .foregroundStyle(Palette.gold)
+                            .transition(.opacity)
+                    }
                     if total > 1 {
                         Text("\(min(done + 1, total)) von \(total)")
                             .font(.footnote)

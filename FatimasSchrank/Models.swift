@@ -48,6 +48,14 @@ enum Category: String, Codable, CaseIterable, Identifiable {
         }
     }
 
+    /// Endung für ein Farbadjektiv davor: das Kleid → "es", die Jacke → "e", die Schuhe → "e".
+    var adjectiveEnding: String {
+        switch self {
+        case .dresses, .tops, .accessories: return "es"
+        case .outerwear, .bottoms, .shoes, .bags: return "e"
+        }
+    }
+
     /// Hängt an der Stange (sonst steht es auf dem Glasboden).
     var hangs: Bool {
         switch self {
@@ -90,27 +98,74 @@ enum GarmentColor: String, Codable, CaseIterable, Identifiable {
         }
     }
 
-    var color: Color {
+    var hex: UInt32 {
         switch self {
-        case .black: return Color(hex: 0x1A1A1A)
-        case .white: return Color(hex: 0xF8F8F6)
-        case .cream: return Color(hex: 0xF1E8D6)
-        case .grey: return Color(hex: 0x9A9A9E)
-        case .beige: return Color(hex: 0xDCC9A6)
-        case .camel: return Color(hex: 0xC19A6B)
-        case .brown: return Color(hex: 0x6B4A33)
-        case .red: return Color(hex: 0xC4262E)
-        case .bordeaux: return Color(hex: 0x6E1A2D)
-        case .pink: return Color(hex: 0xEDB5BC)
-        case .orange: return Color(hex: 0xE8853A)
-        case .yellow: return Color(hex: 0xF0D04C)
-        case .green: return Color(hex: 0x2F7D5F)
-        case .blue: return Color(hex: 0x3D6BC4)
-        case .navy: return Color(hex: 0x1F2D4D)
-        case .purple: return Color(hex: 0x7E5BA6)
-        case .gold: return Color(hex: 0xC9A565)
-        case .silver: return Color(hex: 0xC7C9CC)
+        case .black: return 0x1A1A1A
+        case .white: return 0xF8F8F6
+        case .cream: return 0xF1E8D6
+        case .grey: return 0x9A9A9E
+        case .beige: return 0xDCC9A6
+        case .camel: return 0xC19A6B
+        case .brown: return 0x6B4A33
+        case .red: return 0xC4262E
+        case .bordeaux: return 0x6E1A2D
+        case .pink: return 0xEDB5BC
+        case .orange: return 0xE8853A
+        case .yellow: return 0xF0D04C
+        case .green: return 0x2F7D5F
+        case .blue: return 0x3D6BC4
+        case .navy: return 0x1F2D4D
+        case .purple: return 0x7E5BA6
+        case .gold: return 0xC9A565
+        case .silver: return 0xC7C9CC
         }
+    }
+
+    var color: Color { Color(hex: hex) }
+
+    /// Stamm für die Beugung ("schwarz" → "Schwarzes Kleid"). Nil, wenn die Farbe nicht gebeugt wird.
+    var adjectiveStem: String? {
+        switch self {
+        case .black: return "schwarz"
+        case .white: return "weiß"
+        case .grey: return "grau"
+        case .brown: return "braun"
+        case .red: return "rot"
+        case .yellow: return "gelb"
+        case .green: return "grün"
+        case .blue: return "blau"
+        case .navy: return "marineblau"
+        case .gold: return "golden"
+        case .silver: return "silbern"
+        default: return nil
+        }
+    }
+
+    /// Vorschlag für den Namen, zum Beispiel "Schwarzes Kleid" oder "Jacke in Camel".
+    static func suggestedName(for category: Category, colors: [GarmentColor]) -> String {
+        guard let first = colors.first else { return category.singular }
+        if let stem = first.adjectiveStem {
+            let adjective = stem + category.adjectiveEnding
+            return adjective.prefix(1).uppercased() + adjective.dropFirst() + " " + category.singular
+        }
+        return "\(category.singular) in \(first.title)"
+    }
+
+    /// Nächstliegende Farbe zu einem Bildpunkt (gewichteter RGB-Abstand).
+    static func nearest(red r: Int, green g: Int, blue b: Int) -> GarmentColor {
+        var best = GarmentColor.black
+        var bestDistance = Int.max
+        for c in allCases {
+            let cr = Int((c.hex >> 16) & 0xFF), cg = Int((c.hex >> 8) & 0xFF), cb = Int(c.hex & 0xFF)
+            let mean = (r + cr) / 2
+            let dr = r - cr, dg = g - cg, db = b - cb
+            let distance = ((512 + mean) * dr * dr >> 8) + 4 * dg * dg + ((767 - mean) * db * db >> 8)
+            if distance < bestDistance {
+                bestDistance = distance
+                best = c
+            }
+        }
+        return best
     }
 
     var isLight: Bool {
