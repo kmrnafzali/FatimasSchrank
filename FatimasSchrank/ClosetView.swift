@@ -197,7 +197,7 @@ struct ClosetView: View {
         // Die weit geöffneten Türen stehen links und rechts neben dem Korpus.
         .overlay(alignment: .topLeading) { CabinetDoor(side: .leading) }
         .overlay(alignment: .topTrailing) { CabinetDoor(side: .trailing) }
-        .padding(.horizontal, 46)
+        .padding(.horizontal, 30)
         .frame(maxHeight: .infinity)
     }
 
@@ -259,23 +259,23 @@ struct ClosetView: View {
 
     private func hanging(_ g: Garment, index: Int) -> some View {
         VStack(spacing: -8) {
-            Hanger(width: 92)
+            Hanger(width: 74)
             ZStack {
                 GarmentImage(garment: g)
-                    .frame(width: 128, height: 270, alignment: .top)
+                    .frame(width: 92, height: 270, alignment: .top)
                     .shadow(color: .black.opacity(0.38), radius: 10, x: 9, y: 14)
                 if index == sheenIndex && app.ambient(settings) {
                     SilkSheen()
                         .id(sheenTick)
                         .mask(
                             GarmentImage(garment: g)
-                                .frame(width: 128, height: 270, alignment: .top)
+                                .frame(width: 92, height: 270, alignment: .top)
                         )
                         .allowsHitTesting(false)
                 }
             }
         }
-        .frame(width: 132)
+        .frame(width: 94)
         .rotationEffect(.degrees(tilt * (1 - Double(index % 3) * 0.12)), anchor: .top)
         .animation(.spring(response: 0.7, dampingFraction: 0.28).delay(Double(index % 6) * 0.03), value: tilt)
         .contentShape(Rectangle())
@@ -287,7 +287,7 @@ struct ClosetView: View {
 
     private var emptyHanger: some View {
         VStack(spacing: 6) {
-            Hanger(width: 92)
+            Hanger(width: 74)
                 .rotationEffect(.degrees(emptyTaps % 2 == 1 ? 9 : 0), anchor: .top)
                 .animation(.spring(response: 0.45, dampingFraction: 0.25), value: emptyTaps)
             if emptyTaps >= 3 {
@@ -300,7 +300,7 @@ struct ClosetView: View {
                 .transition(.scale(scale: 0.6, anchor: .top).combined(with: .opacity))
             }
         }
-        .frame(width: 140, alignment: .top)
+        .frame(width: 100, alignment: .top)
         .contentShape(Rectangle())
         .onTapGesture {
             Haptic.light()
@@ -404,7 +404,7 @@ struct ClosetView: View {
                 .accessibilityLabel(hasUnreadLetter ? "Unterste Schublade, etwas Neues liegt darin" : "Unterste Schublade")
                 .accessibilityAddTraits(.isButton)
         }
-        .padding(.horizontal, 46)
+        .padding(.horizontal, 30)
         .padding(.top, 2)
         .padding(.bottom, 8)
     }

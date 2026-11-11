@@ -241,16 +241,16 @@ struct CabinetDoor: View {
                     colors: [Color(hex: 0x7F7570), Color(hex: 0x3E3532), Color(hex: 0x8A807A), Color(hex: 0x2F2927)],
                     startPoint: .topLeading, endPoint: .bottomTrailing
                 ))
-                .padding(.horizontal, 12)
+                .padding(.horizontal, 8)
                 .padding(.vertical, 18)
                 .overlay(
                     Rectangle()
                         .strokeBorder(Palette.brass, lineWidth: 1.5)
-                        .padding(.horizontal, 12)
+                        .padding(.horizontal, 8)
                         .padding(.vertical, 18)
                 )
         }
-        .frame(width: 84)
+        .frame(width: 56)
         .frame(maxHeight: .infinity)
         .rotation3DEffect(
             .degrees(side == .leading ? -112 : 112),
