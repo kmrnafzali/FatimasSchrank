@@ -111,6 +111,8 @@ struct DoorsView: View {
                     .frame(width: 5, height: 120)
                     .shadow(color: .black.opacity(0.4), radius: 3, x: 2, y: 3)
                     .padding(.horizontal, 10)
+                    // Unterhalb von Titel und Hinweis, damit sich nichts überschneidet.
+                    .offset(y: 140)
                 if !handleOnTrailing { Spacer() }
             }
             HStack {
