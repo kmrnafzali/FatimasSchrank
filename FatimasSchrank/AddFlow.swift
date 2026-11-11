@@ -125,7 +125,7 @@ private struct AddGarmentFlow: ViewModifier {
         if failures > 0 {
             message = failures == 1 ? "Ein Foto konnte nicht geladen werden." : "\(failures) Fotos konnten nicht geladen werden."
         } else if cutoutFailed > 0 && sources.count == 1 {
-            message = "Der Hintergrund ließ sich bei diesem Foto nicht entfernen. Vor einer ruhigen, hellen Wand klappt es am besten."
+            message = "Der Hintergrund ließ sich bei diesem Foto nicht entfernen. Flach auf einer ruhigen, hellen Fläche und ohne Bügel klappt es am besten."
         }
         if sources.count == 1, let lastAdded {
             try? await Task.sleep(for: .milliseconds(350))

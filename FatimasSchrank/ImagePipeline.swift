@@ -51,17 +51,70 @@ enum ImagePipeline {
         do {
             try handler.perform([request])
             guard let result = request.results?.first, !result.allInstances.isEmpty else { return nil }
+            // Kleine Nebenstücke (ein Stück Bettwäsche, ein Kissenzipfel) bleiben draußen.
+            let keep = significantInstances(in: result.instanceMask, all: result.allInstances) ?? result.allInstances
             let buffer = try result.generateMaskedImage(
-                ofInstances: result.allInstances,
+                ofInstances: keep,
                 from: handler,
                 croppedToInstancesExtent: true
             )
             let ci = CIImage(cvPixelBuffer: buffer)
             guard let out = CIContext().createCGImage(ci, from: ci.extent) else { return nil }
-            return UIImage(cgImage: out)
+            return trimTransparent(UIImage(cgImage: out))
         } catch {
             return nil
         }
+    }
+
+    /// Behält die Teile, die mindestens 30 Prozent so groß sind wie das größte.
+    private static func significantInstances(in mask: CVPixelBuffer, all: IndexSet) -> IndexSet? {
+        CVPixelBufferLockBaseAddress(mask, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(mask, .readOnly) }
+        guard let base = CVPixelBufferGetBaseAddress(mask) else { return nil }
+        let width = CVPixelBufferGetWidth(mask)
+        let height = CVPixelBufferGetHeight(mask)
+        let rowBytes = CVPixelBufferGetBytesPerRow(mask)
+        var counts = [Int](repeating: 0, count: 256)
+        for y in 0..<height {
+            let row = base.advanced(by: y * rowBytes).assumingMemoryBound(to: UInt8.self)
+            for x in 0..<width { counts[Int(row[x])] += 1 }
+        }
+        let candidates = all.filter { $0 < 256 }
+        guard let largest = candidates.map({ counts[$0] }).max(), largest > 0 else { return nil }
+        let kept = candidates.filter { counts[$0] * 10 >= largest * 3 }
+        return kept.isEmpty ? nil : IndexSet(kept)
+    }
+
+    /// Schneidet den durchsichtigen Rand ab, damit das Stück genau am Bügel hängt.
+    static func trimTransparent(_ image: UIImage) -> UIImage {
+        guard let cg = image.cgImage else { return image }
+        let w = cg.width
+        let h = cg.height
+        guard w > 0, h > 0 else { return image }
+        var data = [UInt8](repeating: 0, count: w * h * 4)
+        let box: (minX: Int, minY: Int, maxX: Int, maxY: Int)? = data.withUnsafeMutableBytes { buffer in
+            guard let ctx = CGContext(
+                data: buffer.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ) else { return nil }
+            ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
+            let bytes = buffer.bindMemory(to: UInt8.self)
+            var minX = w, minY = h, maxX = -1, maxY = -1
+            for y in 0..<h {
+                for x in 0..<w where bytes[(y * w + x) * 4 + 3] > 12 {
+                    if x < minX { minX = x }
+                    if x > maxX { maxX = x }
+                    if y < minY { minY = y }
+                    maxY = y
+                }
+            }
+            return maxX >= minX && maxY >= minY ? (minX, minY, maxX, maxY) : nil
+        }
+        guard let box else { return image }
+        let rect = CGRect(x: box.minX, y: box.minY, width: box.maxX - box.minX + 1, height: box.maxY - box.minY + 1)
+        guard let cropped = cg.cropping(to: rect) else { return image }
+        return UIImage(cgImage: cropped)
     }
 
     static func prepare(_ image: UIImage) -> Prepared {

@@ -306,7 +306,7 @@ struct ClosetView: View {
             Text("Hier ist noch Platz")
                 .font(.serif(.title3))
                 .foregroundStyle(Palette.ink)
-            Text("Tippe oben auf Plus und fotografiere dein erstes Stück.")
+            Text("Tippe oben auf Plus. Am besten legst du das Stück flach auf eine ruhige, helle Fläche, ohne Bügel.")
                 .font(.footnote)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(Palette.inkSecondary)
