@@ -9,6 +9,7 @@ struct OutfitsView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
+                TodaySection()
                 if store.db.outfits.isEmpty {
                     ContentUnavailableView {
                         Label("Dein erstes Outfit wartet", systemImage: "sparkles")
@@ -18,7 +19,7 @@ struct OutfitsView: View {
                         Button("Outfit zusammenstellen") { showBuilder = true }
                             .buttonStyle(.borderedProminent)
                     }
-                    .padding(.top, 80)
+                    .padding(.top, 30)
                 } else {
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 16), GridItem(.flexible(), spacing: 16)], spacing: 22) {
                         ForEach(store.db.outfits) { outfit in
@@ -65,6 +66,127 @@ struct OutfitsView: View {
                 if app.tab == 1, app.argument("-open") == "builder", !showBuilder {
                     try? await Task.sleep(for: .milliseconds(600))
                     showBuilder = true
+                }
+            }
+        }
+    }
+}
+
+/// Oben im Outfits-Tab: Vorschlag für heute und Stücke, die lange nicht getragen wurden.
+struct TodaySection: View {
+    @Environment(Store.self) private var store
+    @Environment(LocationService.self) private var location
+    @Environment(WeatherService.self) private var weather
+    @State private var shuffle = 0
+    @State private var taken = false
+    @State private var opened: Garment?
+
+    private var todayWeather: DayWeather? { weather.days[Date().dayKey] }
+
+    private var look: Stylist.Look? {
+        let day = Calendar.german.ordinality(of: .day, in: .era, for: Date()) ?? 0
+        return Stylist.look(from: store.activeGarments, weather: todayWeather, seed: day &* 31 &+ shuffle)
+    }
+
+    var body: some View {
+        let forgotten = store.forgottenGarments(days: 60)
+        VStack(alignment: .leading, spacing: 22) {
+            if let look {
+                card(look)
+            }
+            if !forgotten.isEmpty {
+                forgottenRow(forgotten)
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 8)
+        .task {
+            await weather.refresh(for: location.resolve(store.db.settings.placeMode))
+        }
+        .sheet(item: $opened) { g in
+            GarmentSheet(id: g.id)
+        }
+    }
+
+    private func card(_ look: Stylist.Look) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Heute für dich")
+                    .font(.footnote.weight(.semibold))
+                    .tracking(1.2)
+                    .foregroundStyle(Palette.gold)
+                Spacer()
+                if let w = todayWeather {
+                    Label(w.summary, systemImage: w.symbol)
+                        .font(.footnote)
+                        .foregroundStyle(Palette.creamSecondary)
+                }
+            }
+            HStack(alignment: .top, spacing: 16) {
+                OutfitCollage(garments: look.garments)
+                    .frame(width: 120, height: 120)
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(look.garments) { g in
+                        Text(g.name)
+                            .font(.serif(.subheadline))
+                            .foregroundStyle(Palette.cream)
+                            .lineLimit(1)
+                    }
+                    Text(look.reason)
+                        .font(.caption)
+                        .foregroundStyle(Palette.creamSecondary)
+                        .padding(.top, 4)
+                }
+            }
+            HStack(spacing: 10) {
+                Button {
+                    Haptic.light()
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        shuffle += 1
+                        taken = false
+                    }
+                } label: {
+                    Label("Anderer Vorschlag", systemImage: "arrow.triangle.2.circlepath")
+                }
+                .buttonStyle(.bordered)
+                .tint(Palette.gold)
+                Button {
+                    store.planGarments(look.garments.map(\.id), on: Date())
+                    Haptic.success()
+                    withAnimation { taken = true }
+                } label: {
+                    Label(taken ? "Eingetragen" : "Heute tragen", systemImage: taken ? "checkmark" : "sun.max")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Palette.gold)
+                .foregroundStyle(Palette.ink)
+                .disabled(taken)
+            }
+            .font(.subheadline)
+        }
+        .padding(18)
+        .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Palette.lacquer))
+        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Palette.brass.opacity(0.5), lineWidth: 1))
+    }
+
+    private func forgottenRow(_ items: [Garment]) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Lange nicht getragen")
+                .font(.serif(.headline))
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(items) { g in
+                        Button {
+                            opened = g
+                        } label: {
+                            GarmentImage(garment: g)
+                                .frame(width: 70, height: 88)
+                                .padding(6)
+                                .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Palette.card))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(g.name)
+                    }
                 }
             }
         }

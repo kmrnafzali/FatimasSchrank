@@ -152,6 +152,11 @@ struct ClosetView: View {
             Text("\(store.activeGarments.count.stuecke) · \(store.db.outfits.count.outfits)")
                 .font(.footnote)
                 .foregroundStyle(Palette.creamSecondary)
+            if special == nil, let next = SpecialDay.upcoming() {
+                Text(SpecialDay.countdownText(next.day, days: next.days))
+                    .font(.caption)
+                    .foregroundStyle(Palette.gold)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 20)

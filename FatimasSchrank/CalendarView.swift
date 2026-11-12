@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 private struct DayPick: Identifiable {
     let date: Date
@@ -15,6 +16,9 @@ struct CalendarView: View {
     @State private var addFor: DayPick?
     @State private var noteFor: DayPick?
     @State private var noteText = ""
+    @State private var photoFor: DayPick?
+    @State private var showPhotoPicker = false
+    @State private var photoItem: PhotosPickerItem?
 
     private var days: [Date] {
         (0..<7).compactMap { Calendar.german.date(byAdding: .day, value: $0, to: weekStart) }
@@ -97,6 +101,18 @@ struct CalendarView: View {
             }
             .onChange(of: place) { _, newPlace in
                 Task { await weather.refresh(for: newPlace) }
+            }
+            .photosPicker(isPresented: $showPhotoPicker, selection: $photoItem, matching: .images)
+            .onChange(of: photoItem) { _, item in
+                guard let item, let pick = photoFor else { return }
+                photoItem = nil
+                Task {
+                    guard let data = try? await item.loadTransferable(type: Data.self),
+                          let image = ImagePipeline.downsample(data: data, maxPixel: 1600) else { return }
+                    if await store.setDayPhoto(pick.date, image: image) {
+                        Haptic.success()
+                    }
+                }
             }
         }
     }
@@ -186,11 +202,32 @@ struct CalendarView: View {
                 }
         }
 
+        if let photo = store.dayPhoto(day) {
+            StoredImage(file: photo.thumb)
+                .frame(height: 150)
+                .frame(maxWidth: .infinity)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .contextMenu {
+                    Button("Foto entfernen", role: .destructive) {
+                        store.removeDayPhoto(day)
+                    }
+                }
+                .accessibilityLabel("Foto vom Tag")
+        }
+
         HStack {
             Button {
                 addFor = DayPick(date: day)
             } label: {
                 Label("Outfit", systemImage: "plus")
+            }
+            .buttonStyle(.borderless)
+            Spacer()
+            Button {
+                photoFor = DayPick(date: day)
+                showPhotoPicker = true
+            } label: {
+                Label("Foto", systemImage: "camera")
             }
             .buttonStyle(.borderless)
             Spacer()

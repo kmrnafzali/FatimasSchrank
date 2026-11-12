@@ -249,6 +249,123 @@ final class Store {
         save()
     }
 
+    // MARK: Vorschläge
+
+    func planGarments(_ ids: [UUID], on date: Date) {
+        guard !ids.isEmpty else { return }
+        db.plan.append(PlanEntry(day: date.dayKey, garmentIDs: ids))
+        save()
+    }
+
+    /// Letzter Tag bis heute, an dem das Stück eingeplant war.
+    func lastWornKey(_ g: Garment) -> String? {
+        let today = Date().dayKey
+        let outfitIDs = Set(db.outfits.filter { $0.garmentIDs.contains(g.id) }.map(\.id))
+        return db.plan.filter { entry in
+            guard entry.day <= today else { return false }
+            if let oid = entry.outfitID, outfitIDs.contains(oid) { return true }
+            return entry.garmentIDs.contains(g.id)
+        }
+        .map(\.day)
+        .max()
+    }
+
+    /// Stücke, die schon länger im Schrank sind und seit `days` Tagen nicht getragen wurden.
+    func forgottenGarments(days: Int) -> [Garment] {
+        guard let cutoff = Calendar.german.date(byAdding: .day, value: -days, to: Date()) else { return [] }
+        let key = cutoff.dayKey
+        let found = activeGarments
+            .filter { g in
+                guard g.added < cutoff else { return false }
+                guard let last = lastWornKey(g) else { return true }
+                return last < key
+            }
+            .sorted { $0.added < $1.added }
+        return Array(found.prefix(12))
+    }
+
+    // MARK: Wünsche und Größen
+
+    func saveWish(_ wish: Wish) {
+        if let i = db.wishes.firstIndex(where: { $0.id == wish.id }) {
+            db.wishes[i] = wish
+        } else {
+            db.wishes.insert(wish, at: 0)
+        }
+        save()
+    }
+
+    func deleteWish(_ id: UUID) {
+        db.wishes.removeAll { $0.id == id }
+        save()
+    }
+
+    func setSize(_ key: String, _ value: String) {
+        db.sizes[key] = value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : value
+        save()
+    }
+
+    // MARK: Reisen
+
+    func trip(_ id: UUID) -> Trip? {
+        db.trips.first { $0.id == id }
+    }
+
+    func saveTrip(_ trip: Trip) {
+        if let i = db.trips.firstIndex(where: { $0.id == trip.id }) {
+            db.trips[i] = trip
+        } else {
+            db.trips.insert(trip, at: 0)
+        }
+        save()
+    }
+
+    func deleteTrip(_ id: UUID) {
+        db.trips.removeAll { $0.id == id }
+        save()
+    }
+
+    func togglePacked(trip id: UUID, garment gid: UUID) {
+        guard let i = db.trips.firstIndex(where: { $0.id == id }) else { return }
+        if let j = db.trips[i].packed.firstIndex(of: gid) {
+            db.trips[i].packed.remove(at: j)
+        } else {
+            db.trips[i].packed.append(gid)
+        }
+        save()
+    }
+
+    // MARK: Tagebuch
+
+    func dayPhoto(_ date: Date) -> DayPhoto? {
+        db.dayPhotos[date.dayKey]
+    }
+
+    @discardableResult
+    func setDayPhoto(_ date: Date, image: UIImage) async -> Bool {
+        let key = date.dayKey
+        let dir = imagesURL
+        let base = "tag-\(key)-\(UUID().uuidString.prefix(8))"
+        let files = await Task.detached(priority: .userInitiated) {
+            ImagePipeline.write(ImagePipeline.scaled(image, maxSide: 1600, opaque: true), base: base, into: dir)
+        }.value
+        guard let files else { return false }
+        removeDayPhoto(date, persist: false)
+        db.dayPhotos[key] = DayPhoto(full: files.full, thumb: files.thumb)
+        save()
+        return true
+    }
+
+    func removeDayPhoto(_ date: Date, persist: Bool = true) {
+        guard let photo = db.dayPhotos[date.dayKey] else { return }
+        for file in [photo.full, photo.thumb] {
+            try? FileManager.default.removeItem(at: imageURL(file))
+            ImageCache.shared.remove(file)
+        }
+        db.dayPhotos[date.dayKey] = nil
+        if persist { save() }
+    }
+
     // MARK: Überraschungen
 
     func discover(_ key: String) {

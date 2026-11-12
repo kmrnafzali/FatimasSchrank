@@ -75,6 +75,29 @@ struct MoreView: View {
                     Text("Alles bleibt nur auf diesem iPhone. Speichere ab und zu eine Sicherung, zum Beispiel in iCloud Drive.")
                 }
 
+                Section("Mein Schrank") {
+                    NavigationLink {
+                        WishlistView()
+                    } label: {
+                        Label("Wunschliste", systemImage: "gift")
+                    }
+                    NavigationLink {
+                        SizesView()
+                    } label: {
+                        Label("Meine Größen", systemImage: "ruler")
+                    }
+                    NavigationLink {
+                        DiaryView()
+                    } label: {
+                        Label("Tagebuch", systemImage: "photo.on.rectangle")
+                    }
+                    NavigationLink {
+                        TripsView()
+                    } label: {
+                        Label("Reisen und Koffer", systemImage: "suitcase")
+                    }
+                }
+
                 Section {
                     Button {
                         app.showDrawer = true

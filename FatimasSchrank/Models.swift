@@ -252,12 +252,46 @@ struct Settings: Codable, Equatable {
     var milestonesShown: [Int] = []
 }
 
+struct Wish: Identifiable, Codable, Hashable {
+    var id = UUID()
+    var name: String
+    var brand = ""
+    var size = ""
+    var color = ""
+    var link = ""
+    var note = ""
+    var added = Date()
+    var fulfilled = false
+}
+
+struct Trip: Identifiable, Codable, Hashable {
+    var id = UUID()
+    var name: String
+    var start: Date
+    var end: Date
+    /// Look je Tag (yyyy-MM-dd → Stücke).
+    var plan: [String: [UUID]] = [:]
+    /// Packliste.
+    var garmentIDs: [UUID] = []
+    var packed: [UUID] = []
+}
+
+/// Foto vom Tag im Tagebuch.
+struct DayPhoto: Codable, Hashable {
+    var full: String
+    var thumb: String
+}
+
 struct Database: Codable {
     var garments: [Garment] = []
     var outfits: [Outfit] = []
     var plan: [PlanEntry] = []
     var dayNotes: [String: String] = [:]
     var settings = Settings()
+    var wishes: [Wish] = []
+    var sizes: [String: String] = [:]
+    var trips: [Trip] = []
+    var dayPhotos: [String: DayPhoto] = [:]
 }
 
 // MARK: - Nachsichtiges Lesen
@@ -331,6 +365,38 @@ extension Database {
         plan = c.value(.plan, default: [])
         dayNotes = c.value(.dayNotes, default: [:])
         settings = c.value(.settings, default: Settings())
+        wishes = c.value(.wishes, default: [])
+        sizes = c.value(.sizes, default: [:])
+        trips = c.value(.trips, default: [])
+        dayPhotos = c.value(.dayPhotos, default: [:])
+    }
+}
+
+extension Wish {
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(name: c.value(.name, default: "Wunsch"))
+        id = c.value(.id, default: UUID())
+        brand = c.value(.brand, default: "")
+        size = c.value(.size, default: "")
+        color = c.value(.color, default: "")
+        link = c.value(.link, default: "")
+        note = c.value(.note, default: "")
+        added = c.value(.added, default: Date())
+        fulfilled = c.value(.fulfilled, default: false)
+    }
+}
+
+extension Trip {
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(name: c.value(.name, default: "Reise"),
+                  start: c.value(.start, default: Date()),
+                  end: c.value(.end, default: Date()))
+        id = c.value(.id, default: UUID())
+        plan = c.value(.plan, default: [:])
+        garmentIDs = c.value(.garmentIDs, default: [])
+        packed = c.value(.packed, default: [])
     }
 }
 

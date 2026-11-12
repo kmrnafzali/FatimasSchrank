@@ -129,8 +129,42 @@ struct GarmentSheet: View {
                 .buttonStyle(PrimaryCapsuleStyle())
                 .padding(.horizontal, 24)
                 .padding(.top, 32)
-                .padding(.bottom, 30)
+                .padding(.bottom, 20)
+                companions(g)
+                    .padding(.bottom, 30)
             }
+        }
+    }
+
+    /// Stücke aus anderen Kategorien, die farblich passen.
+    @ViewBuilder
+    private func companions(_ g: Garment) -> some View {
+        let matches = Stylist.companions(for: g, in: store.activeGarments)
+        if !matches.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Passt dazu")
+                    .font(.serif(.headline))
+                    .padding(.horizontal, 24)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(matches) { m in
+                            VStack(spacing: 6) {
+                                GarmentImage(garment: m)
+                                    .frame(width: 70, height: 88)
+                                    .padding(6)
+                                    .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Palette.card))
+                                Text(m.name)
+                                    .font(.caption)
+                                    .lineLimit(1)
+                                    .frame(width: 82)
+                            }
+                            .accessibilityElement(children: .combine)
+                        }
+                    }
+                    .padding(.horizontal, 24)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 

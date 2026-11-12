@@ -372,6 +372,34 @@ struct GarmentImage: View {
     }
 }
 
+/// Ein gespeichertes Foto (zum Beispiel aus dem Tagebuch), im Hintergrund geladen.
+struct StoredImage: View {
+    @Environment(Store.self) private var store
+    let file: String
+    var contentMode: ContentMode = .fill
+    @State private var image: UIImage?
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: contentMode)
+            } else {
+                Rectangle().fill(Palette.card)
+            }
+        }
+        .task(id: file) {
+            guard !file.isEmpty else { return }
+            if let cached = ImageCache.shared.get(file) {
+                image = cached
+                return
+            }
+            image = await ImageLoader.shared.load(store.imageURL(file), key: file)
+        }
+    }
+}
+
 struct ColorDots: View {
     let colors: [GarmentColor]
 

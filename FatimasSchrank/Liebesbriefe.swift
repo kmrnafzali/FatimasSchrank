@@ -231,6 +231,28 @@ enum SpecialDay {
         return nil
     }
 
+    /// Der nächste besondere Tag nach heute und wie viele Tage es noch sind.
+    static func upcoming(from date: Date = Date()) -> (day: SpecialDay, days: Int)? {
+        let cal = Calendar.german
+        let start = cal.startOfDay(for: date)
+        func next(_ month: Int, _ day: Int) -> Date? {
+            cal.nextDate(after: start, matching: DateComponents(month: month, day: day), matchingPolicy: .nextTime)
+        }
+        var options: [(SpecialDay, Date)] = []
+        if let b = next(Liebesbriefe.birthday.month, Liebesbriefe.birthday.day) { options.append((.birthday, b)) }
+        if let a = next(Liebesbriefe.anniversary.month, Liebesbriefe.anniversary.day) { options.append((.anniversary, a)) }
+        guard let soonest = options.min(by: { $0.1 < $1.1 }),
+              let days = cal.dateComponents([.day], from: start, to: soonest.1).day else { return nil }
+        return (soonest.0, days)
+    }
+
+    static func countdownText(_ day: SpecialDay, days: Int) -> String {
+        if days == 1 {
+            return day == .birthday ? "Morgen ist dein Geburtstag" : "Morgen ist unser Tag"
+        }
+        return day == .birthday ? "Noch \(days) Tage bis zu deinem Geburtstag" : "Noch \(days) Tage bis zu unserem Tag"
+    }
+
     var card: String {
         switch self {
         case .birthday: return Liebesbriefe.birthdayCard
