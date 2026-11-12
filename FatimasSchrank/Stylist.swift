@@ -131,10 +131,13 @@ enum Stylist {
         var t = trip
         t.plan = [:]
         var all: [UUID] = []
-        let base = trip.id.uuidString.unicodeScalars.reduce(0) { $0 &+ Int($1.value) } &+ variant &* 104_729
+        var base = variant &* 104_729
+        for scalar in trip.id.uuidString.unicodeScalars {
+            base = base &+ Int(scalar.value)
+        }
         for (i, day) in days(from: trip.start, to: trip.end).enumerated() {
-            guard let look = look(from: garments, weather: weather[day.dayKey], seed: base &+ i &* 7_919) else { continue }
-            let ids = look.garments.map(\.id)
+            guard let daily = Stylist.look(from: garments, weather: weather[day.dayKey], seed: base &+ i &* 7_919) else { continue }
+            let ids = daily.garments.map(\.id)
             t.plan[day.dayKey] = ids
             for id in ids where !all.contains(id) {
                 all.append(id)

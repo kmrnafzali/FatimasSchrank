@@ -109,8 +109,8 @@ struct WishEditor: View {
                         .keyboardType(.URL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                    if let linkURL {
-                        Link("Im Browser öffnen", destination: linkURL)
+                    if let url = linkURL {
+                        Link("Im Browser öffnen", destination: url)
                     }
                 }
                 Section("Notiz") {
