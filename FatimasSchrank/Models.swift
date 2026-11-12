@@ -146,20 +146,33 @@ enum GarmentColor: String, Codable, CaseIterable, Identifiable {
         guard let first = colors.first else { return category.singular }
         if let stem = first.adjectiveStem {
             let adjective = stem + category.adjectiveEnding
-            return adjective.prefix(1).uppercased() + adjective.dropFirst() + " " + category.singular
+            let capitalized = adjective.prefix(1).uppercased() + String(adjective.dropFirst())
+            return "\(capitalized) \(category.singular)"
         }
         return "\(category.singular) in \(first.title)"
     }
 
     /// Nächstliegende Farbe zu einem Bildpunkt (gewichteter RGB-Abstand).
     static func nearest(red r: Int, green g: Int, blue b: Int) -> GarmentColor {
+        // Farblose Töne zuerst nach Helligkeit, sonst landet Dunkelgrau bei Braun.
+        let spread = max(r, g, b) - min(r, g, b)
+        if spread <= 28 {
+            let light = (r + g + b) / 3
+            if light < 55 { return .black }
+            if light < 215 { return .grey }
+            return .white
+        }
         var best = GarmentColor.black
         var bestDistance = Int.max
         for c in allCases {
             let cr = Int((c.hex >> 16) & 0xFF), cg = Int((c.hex >> 8) & 0xFF), cb = Int(c.hex & 0xFF)
             let mean = (r + cr) / 2
             let dr = r - cr, dg = g - cg, db = b - cb
-            let distance = ((512 + mean) * dr * dr >> 8) + 4 * dg * dg + ((767 - mean) * db * db >> 8)
+            // Klammern sind nötig: ">>" bindet in Swift stärker als "*".
+            let redPart = ((512 + mean) * dr * dr) / 256
+            let greenPart = 4 * dg * dg
+            let bluePart = ((767 - mean) * db * db) / 256
+            let distance = redPart + greenPart + bluePart
             if distance < bestDistance {
                 bestDistance = distance
                 best = c

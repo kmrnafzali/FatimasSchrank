@@ -142,14 +142,14 @@ enum ImagePipeline {
     /// Schlüsselwörter aus Apples Bilderkennung, je Kategorie.
     private static let keywords: [(Category, Set<String>)] = [
         (.shoes, ["shoe", "shoes", "sneaker", "sneakers", "boot", "boots", "sandal", "sandals", "heel", "heels",
-                  "loafer", "loafers", "footwear", "slipper", "slippers", "pump", "pumps", "stiletto"]),
+                  "loafer", "loafers", "footwear", "slipper", "slippers", "pumps", "stiletto"]),
         (.bags, ["bag", "handbag", "purse", "backpack", "clutch", "tote", "wallet", "satchel", "luggage"]),
         (.accessories, ["hat", "cap", "scarf", "sunglasses", "eyeglasses", "glasses", "jewelry", "necklace",
                         "bracelet", "earring", "earrings", "watch", "belt", "glove", "gloves", "beanie", "headband"]),
         (.dresses, ["dress", "gown", "sundress", "jumpsuit"]),
         (.outerwear, ["coat", "jacket", "blazer", "parka", "raincoat", "overcoat", "trenchcoat", "windbreaker", "poncho"]),
         (.bottoms, ["jeans", "pants", "trousers", "shorts", "skirt", "leggings", "denim", "miniskirt"]),
-        (.tops, ["shirt", "blouse", "sweater", "sweatshirt", "hoodie", "top", "polo", "tank", "jersey",
+        (.tops, ["shirt", "blouse", "sweater", "sweatshirt", "hoodie", "top", "polo", "jersey",
                  "cardigan", "pullover", "tee", "turtleneck", "camisole"]),
     ]
 
