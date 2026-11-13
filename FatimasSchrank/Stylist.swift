@@ -110,6 +110,32 @@ enum Stylist {
         return Array(found.prefix(12))
     }
 
+    /// Stücke derselben Art oder Farbe, die ähnlichsten zuerst.
+    static func similar(to g: Garment, in all: [Garment]) -> [Garment] {
+        let colors = Set(g.colors)
+        func score(_ other: Garment) -> Int {
+            (other.category == g.category ? 2 : 0) + (colors.isDisjoint(with: other.colors) ? 0 : 1)
+        }
+        let found = all
+            .filter { $0.id != g.id && !$0.isArchived && score($0) > 0 }
+            .sorted { score($0) > score($1) }
+        return Array(found.prefix(12))
+    }
+
+    /// Ein freundlicher Hinweis, wenn im Schrank etwas deutlich fehlt.
+    static func missingHint(_ items: [Garment]) -> String? {
+        guard items.count >= 8 else { return nil }
+        func count(_ c: Category) -> Int { items.filter { $0.category == c }.count }
+        let tops = count(.tops)
+        let bottoms = count(.bottoms)
+        if tops >= 4 && bottoms * 2 < tops { return "Du hast viele Oberteile, aber wenige Hosen und Röcke." }
+        if bottoms >= 4 && tops * 2 < bottoms { return "Du hast viele Hosen und Röcke, aber wenige Oberteile." }
+        if count(.shoes) == 0 { return "Noch keine Schuhe im Schrank. Mit ihnen werden die Vorschläge vollständig." }
+        if count(.outerwear) == 0 { return "Noch kein Mantel und keine Jacke. Für Regentage fehlt etwas." }
+        if count(.bags) == 0 { return "Noch keine Tasche im Schrank." }
+        return nil
+    }
+
     // MARK: Reisen
 
     /// Alle Tage einer Reise, höchstens 31.

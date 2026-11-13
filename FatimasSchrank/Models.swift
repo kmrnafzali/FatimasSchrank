@@ -123,6 +123,12 @@ enum GarmentColor: String, Codable, CaseIterable, Identifiable {
 
     var color: Color { Color(hex: hex) }
 
+    /// Reihenfolge für die Regenbogen-Ordnung im Schrank.
+    static let rainbow: [GarmentColor] = [
+        .red, .bordeaux, .pink, .orange, .yellow, .gold, .camel, .beige, .brown,
+        .green, .blue, .navy, .purple, .silver, .grey, .white, .cream, .black,
+    ]
+
     /// Stamm für die Beugung ("schwarz" → "Schwarzes Kleid"). Nil, wenn die Farbe nicht gebeugt wird.
     var adjectiveStem: String? {
         switch self {
@@ -205,6 +211,67 @@ struct Garment: Identifiable, Codable, Hashable {
     var added = Date()
     var isFavorite = false
     var isArchived = false
+    /// Eigene Bereiche, zum Beispiel "Sport".
+    var tags: [String] = []
+    var seasons: [Season] = []
+    var disposal = Disposal.keep
+    /// Notiz für den Schneider.
+    var alteration = ""
+    var alterationDue: Date? = nil
+
+    /// Platz in der Regenbogen-Ordnung, ohne Farbe ganz hinten.
+    var rainbowRank: Int {
+        guard let first = colors.first, let index = GarmentColor.rainbow.firstIndex(of: first) else { return 99 }
+        return index
+    }
+}
+
+enum Season: String, Codable, CaseIterable, Identifiable {
+    case spring, summer, autumn, winter
+
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = Season(rawValue: raw) ?? .spring
+    }
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .spring: return "Frühling"
+        case .summer: return "Sommer"
+        case .autumn: return "Herbst"
+        case .winter: return "Winter"
+        }
+    }
+
+    static func current(_ date: Date = Date()) -> Season {
+        switch Calendar.german.component(.month, from: date) {
+        case 3...5: return .spring
+        case 6...8: return .summer
+        case 9...11: return .autumn
+        default: return .winter
+        }
+    }
+}
+
+enum Disposal: String, Codable, CaseIterable, Identifiable {
+    case keep, sell, donate
+
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = Disposal(rawValue: raw) ?? .keep
+    }
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .keep: return "Behalten"
+        case .sell: return "Verkaufen"
+        case .donate: return "Spenden"
+        }
+    }
 }
 
 struct Outfit: Identifiable, Codable, Hashable {
@@ -250,6 +317,8 @@ struct Settings: Codable, Equatable {
     var discovered: [String] = []
     var lastGoodNight = ""
     var milestonesShown: [Int] = []
+    var customAreas: [String] = []
+    var rainbowOrder = false
 }
 
 struct Wish: Identifiable, Codable, Hashable {
@@ -318,6 +387,11 @@ extension Garment {
         added = c.value(.added, default: Date())
         isFavorite = c.value(.isFavorite, default: false)
         isArchived = c.value(.isArchived, default: false)
+        tags = c.value(.tags, default: [])
+        seasons = c.value(.seasons, default: [])
+        disposal = c.value(.disposal, default: .keep)
+        alteration = c.value(.alteration, default: "")
+        alterationDue = (try? c.decodeIfPresent(Date.self, forKey: .alterationDue)) ?? nil
     }
 }
 
@@ -353,6 +427,8 @@ extension Settings {
         discovered = c.value(.discovered, default: [])
         lastGoodNight = c.value(.lastGoodNight, default: "")
         milestonesShown = c.value(.milestonesShown, default: [])
+        customAreas = c.value(.customAreas, default: [])
+        rainbowOrder = c.value(.rainbowOrder, default: false)
     }
 }
 

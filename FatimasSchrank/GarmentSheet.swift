@@ -131,18 +131,28 @@ struct GarmentSheet: View {
                 .padding(.top, 32)
                 .padding(.bottom, 20)
                 companions(g)
+                    .padding(.bottom, 16)
+                similarRow(g)
                     .padding(.bottom, 30)
             }
         }
     }
 
+    /// Stücke derselben Art oder Farbe.
+    private func similarRow(_ g: Garment) -> some View {
+        pieceRow("Ähnliche Stücke", Stylist.similar(to: g, in: store.activeGarments))
+    }
+
     /// Stücke aus anderen Kategorien, die farblich passen.
-    @ViewBuilder
     private func companions(_ g: Garment) -> some View {
-        let matches = Stylist.companions(for: g, in: store.activeGarments)
+        pieceRow("Passt dazu", Stylist.companions(for: g, in: store.activeGarments))
+    }
+
+    @ViewBuilder
+    private func pieceRow(_ title: String, _ matches: [Garment]) -> some View {
         if !matches.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Passt dazu")
+                Text(title)
                     .font(.serif(.headline))
                     .padding(.horizontal, 24)
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -213,6 +223,16 @@ struct GarmentSheet: View {
             Text(worn == 0 ? "Noch nicht getragen" : (worn == 1 ? "Einmal getragen" : "\(worn)-mal getragen"))
                 .font(.footnote.weight(.medium))
                 .foregroundStyle(Palette.bronze)
+            if g.disposal != .keep {
+                Label("Zum \(g.disposal.title) vorgemerkt", systemImage: "archivebox")
+                    .font(.footnote)
+                    .foregroundStyle(Palette.inkSecondary)
+            }
+            if !g.alteration.isEmpty {
+                Label("Schneiderei: \(g.alteration)", systemImage: "scissors")
+                    .font(.footnote)
+                    .foregroundStyle(Palette.inkSecondary)
+            }
             if !g.note.isEmpty {
                 Text(g.note)
                     .font(.footnote)
@@ -231,6 +251,39 @@ struct GarmentEditor: View {
 
     init(original: Garment) {
         _draft = State(initialValue: original)
+    }
+
+    private func seasonChip(_ s: Season) -> some View {
+        let on = draft.seasons.contains(s)
+        return Button {
+            if on {
+                draft.seasons.removeAll { $0 == s }
+            } else {
+                draft.seasons.append(s)
+            }
+        } label: {
+            Text(s.title)
+                .font(.footnote.weight(on ? .semibold : .regular))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Capsule().fill(on ? Palette.accent.opacity(0.2) : Palette.card))
+                .foregroundStyle(on ? Palette.accent : Color.primary)
+        }
+        .buttonStyle(.borderless)
+        .accessibilityAddTraits(on ? .isSelected : [])
+    }
+
+    private func areaBinding(_ name: String) -> Binding<Bool> {
+        Binding(
+            get: { draft.tags.contains(name) },
+            set: { on in
+                if on {
+                    if !draft.tags.contains(name) { draft.tags.append(name) }
+                } else {
+                    draft.tags.removeAll { $0 == name }
+                }
+            }
+        )
     }
 
     var body: some View {
@@ -261,9 +314,47 @@ struct GarmentEditor: View {
                     TextField("Pflege, Passform, Anlass …", text: $draft.note, axis: .vertical)
                         .lineLimit(1...5)
                 }
+                Section("Saison") {
+                    HStack(spacing: 8) {
+                        ForEach(Season.allCases) { s in
+                            seasonChip(s)
+                        }
+                    }
+                }
+                if !store.db.settings.customAreas.isEmpty {
+                    Section("Bereiche") {
+                        ForEach(store.db.settings.customAreas, id: \.self) { name in
+                            Toggle(name, isOn: areaBinding(name))
+                        }
+                    }
+                }
                 Section {
                     Toggle("Lieblingsstück", isOn: $draft.isFavorite)
                     Toggle("Archiviert", isOn: $draft.isArchived)
+                    Picker("Aussortieren", selection: $draft.disposal) {
+                        ForEach(Disposal.allCases) { d in
+                            Text(d.title).tag(d)
+                        }
+                    }
+                }
+                Section {
+                    TextField("Zum Beispiel: Saum kürzen", text: $draft.alteration)
+                    Toggle("Erinnern", isOn: Binding(
+                        get: { draft.alterationDue != nil },
+                        set: { on in
+                            draft.alterationDue = on ? (Calendar.german.date(byAdding: .day, value: 7, to: Date()) ?? Date()) : nil
+                        }
+                    ))
+                    if let due = draft.alterationDue {
+                        DatePicker("Am", selection: Binding(
+                            get: { due },
+                            set: { draft.alterationDue = $0 }
+                        ), displayedComponents: [.date, .hourAndMinute])
+                    }
+                } header: {
+                    Text("Schneiderei")
+                } footer: {
+                    Text("Mit Erinnerung bekommst du eine Mitteilung, wenn es Zeit für den Schneider ist.")
                 }
             }
             .scrollContentBackground(.hidden)
@@ -279,6 +370,7 @@ struct GarmentEditor: View {
                         var g = draft
                         if g.name.trimmingCharacters(in: .whitespaces).isEmpty { g.name = g.category.singular }
                         store.update(g)
+                        Reminders.updateAlteration(for: g)
                         Haptic.light()
                         dismiss()
                     }

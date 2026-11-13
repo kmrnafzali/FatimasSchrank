@@ -11,6 +11,10 @@ struct ClosetView: View {
     @Environment(AppState.self) private var app
 
     @State private var category: Category = .dresses
+    @State private var area: String?
+    @State private var showNewArea = false
+    @State private var newAreaName = ""
+    @State private var showJewelry = false
     @State private var tilt: Double = 0
     @State private var lastOffset: CGFloat?
     @State private var settleTask: Task<Void, Never>?
@@ -33,7 +37,11 @@ struct ClosetView: View {
     }
 
     private var settings: Settings { store.db.settings }
-    private var items: [Garment] { store.garments(in: category) }
+    private var items: [Garment] {
+        let base = area.map { store.garments(inArea: $0) } ?? store.garments(in: category)
+        guard settings.rainbowOrder else { return base }
+        return base.sorted { $0.rainbowRank < $1.rainbowRank }
+    }
     private var shelfItems: [Garment] {
         // An besonderen Tagen steht rechts eine Karte, dann ist Platz für zwei Stücke.
         Array((store.garments(in: .bags) + store.garments(in: .accessories)).prefix(special == nil ? 4 : 2))
@@ -97,6 +105,7 @@ struct ClosetView: View {
         .toolbarColorScheme(.dark, for: .tabBar)
         .addGarmentFlow(category: category, showCamera: $showCamera, showPicker: $showPicker) { single in
             // Zur erkannten Kategorie wechseln, damit das neue Stück sichtbar ist.
+            area = nil
             category = single.category
             editAfterAdd = single
         }
@@ -108,6 +117,21 @@ struct ClosetView: View {
         }
         .sheet(isPresented: $showAll) {
             AllGarmentsView()
+        }
+        .sheet(isPresented: $showJewelry) {
+            JewelryBoxView()
+        }
+        .alert("Neuer Bereich", isPresented: $showNewArea) {
+            TextField("Zum Beispiel: Sport", text: $newAreaName)
+            Button("Anlegen") {
+                let name = newAreaName.trimmingCharacters(in: .whitespaces)
+                if store.addArea(name) {
+                    withAnimation { area = name }
+                }
+            }
+            Button("Abbrechen", role: .cancel) {}
+        } message: {
+            Text("Danach ordnest du Stücke im Bearbeiten-Fenster diesem Bereich zu.")
         }
         .sheet(isPresented: Binding(get: { app.showDrawer }, set: { app.showDrawer = $0 })) {
             LettersView()
@@ -166,12 +190,33 @@ struct ClosetView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(Category.allCases) { c in
-                    GlassChip(title: c.title, selected: c == category) {
+                    GlassChip(title: c.title, selected: area == nil && c == category) {
                         Haptic.light()
-                        withAnimation(.spring(response: 0.35, dampingFraction: 1)) { category = c }
+                        withAnimation(.spring(response: 0.35, dampingFraction: 1)) {
+                            category = c
+                            area = nil
+                        }
                         lastOffset = nil
                     }
                 }
+                ForEach(settings.customAreas, id: \.self) { name in
+                    GlassChip(title: name, selected: area == name) {
+                        Haptic.light()
+                        withAnimation(.spring(response: 0.35, dampingFraction: 1)) { area = name }
+                        lastOffset = nil
+                    }
+                    .contextMenu {
+                        Button("Bereich löschen", role: .destructive) {
+                            if area == name { area = nil }
+                            store.removeArea(name)
+                        }
+                    }
+                }
+                GlassChip(title: "+ Bereich", selected: false) {
+                    newAreaName = ""
+                    showNewArea = true
+                }
+                .accessibilityLabel("Eigenen Bereich anlegen")
             }
             .padding(.horizontal, 20)
         }
@@ -186,8 +231,10 @@ struct ClosetView: View {
             VStack(spacing: 0) {
                 shelf
                 GlassShelf()
-                if category.hangs {
+                if area != nil || category.hangs {
                     rod
+                } else if category == .shoes {
+                    shoeRack
                 } else {
                     standing
                 }
@@ -358,6 +405,42 @@ struct ClosetView: View {
     }
 
     /// Kleine Karte, die an Geburtstag und Jahrestag auf dem Glasboden steht.
+    /// Schuhe paarweise auf mehreren Glasböden, drei nebeneinander.
+    private var shoeRack: some View {
+        let all = items
+        let rows: [[Garment]] = stride(from: 0, to: all.count, by: 3).map { start in
+            Array(all[start..<min(start + 3, all.count)])
+        }
+        return ScrollView(.vertical, showsIndicators: false) {
+            VStack(spacing: 6) {
+                ForEach(rows.indices, id: \.self) { i in
+                    VStack(spacing: 0) {
+                        HStack(alignment: .bottom, spacing: 10) {
+                            ForEach(rows[i]) { g in
+                                GarmentImage(garment: g)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 64, alignment: .bottom)
+                                    .shadow(color: .black.opacity(0.35), radius: 5, x: 4, y: 5)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture { open(g) }
+                                    .accessibilityAddTraits(.isButton)
+                            }
+                            ForEach(0..<(3 - rows[i].count), id: \.self) { _ in
+                                Color.clear.frame(maxWidth: .infinity, maxHeight: 64)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        GlassShelf()
+                    }
+                }
+            }
+            .padding(.top, 16)
+        }
+        .overlay {
+            if all.isEmpty { emptyRodHint }
+        }
+    }
+
     private func specialCard(_ day: SpecialDay) -> some View {
         Button {
             Haptic.success()
@@ -393,15 +476,15 @@ struct ClosetView: View {
 
     private var drawers: some View {
         VStack(spacing: 2) {
-            // Obere Schublade: alle Stücke im Überblick.
+            // Obere Schublade: das Schmuckkästchen.
             drawerFront(dot: false)
                 .frame(height: 46)
                 .contentShape(Rectangle())
                 .onTapGesture {
                     Haptic.soft()
-                    showAll = true
+                    showJewelry = true
                 }
-                .accessibilityLabel("Obere Schublade, alle Stücke")
+                .accessibilityLabel("Obere Schublade, Schmuckkästchen")
                 .accessibilityAddTraits(.isButton)
             drawerFront(dot: hasUnreadLetter)
                 .frame(height: 46)
@@ -578,21 +661,70 @@ struct AllGarmentsView: View {
     @State private var search = ""
     @State private var filter = 0
     @State private var selected: Garment?
+    @State private var colorFilter: GarmentColor?
+    @State private var brandFilter: String?
+    @State private var seasonFilter: Season?
 
     private var results: [Garment] {
-        let q = search.trimmingCharacters(in: .whitespaces)
+        let query = SearchQuery.parse(search)
+        let rare: Set<UUID> = filter == 3 ? store.rarelyWorn(days: 60) : []
         return store.db.garments.filter { g in
             switch filter {
             case 1: if !g.isFavorite || g.isArchived { return false }
             case 2: if !g.isArchived { return false }
+            case 3: if g.isArchived || !rare.contains(g.id) { return false }
             default: if g.isArchived { return false }
             }
-            if q.isEmpty { return true }
-            return g.name.localizedCaseInsensitiveContains(q)
-                || g.brand.localizedCaseInsensitiveContains(q)
-                || g.memory.localizedCaseInsensitiveContains(q)
-                || g.category.title.localizedCaseInsensitiveContains(q)
-                || g.colors.contains { $0.title.localizedCaseInsensitiveContains(q) }
+            if let colorFilter, !g.colors.contains(colorFilter) { return false }
+            if let brandFilter,
+               g.brand.trimmingCharacters(in: .whitespaces).caseInsensitiveCompare(brandFilter) != .orderedSame { return false }
+            if let seasonFilter, !g.seasons.isEmpty, !g.seasons.contains(seasonFilter) { return false }
+            return query.matches(g)
+        }
+    }
+
+    private func filterLabel(_ text: String, active: Bool) -> some View {
+        HStack(spacing: 4) {
+            Text(text)
+            Image(systemName: "chevron.down")
+                .font(.caption2)
+        }
+        .font(.subheadline)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .background(Capsule().fill(active ? Palette.accent.opacity(0.18) : Palette.card))
+        .foregroundStyle(active ? Palette.accent : Color.primary)
+    }
+
+    private var filterRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                Menu {
+                    Button("Alle Farben") { colorFilter = nil }
+                    ForEach(GarmentColor.allCases) { c in
+                        Button(c.title) { colorFilter = c }
+                    }
+                } label: {
+                    filterLabel(colorFilter?.title ?? "Farbe", active: colorFilter != nil)
+                }
+                Menu {
+                    Button("Alle Marken") { brandFilter = nil }
+                    ForEach(store.brands, id: \.self) { b in
+                        Button(b) { brandFilter = b }
+                    }
+                } label: {
+                    filterLabel(brandFilter ?? "Marke", active: brandFilter != nil)
+                }
+                Menu {
+                    Button("Alle Saisons") { seasonFilter = nil }
+                    ForEach(Season.allCases) { s in
+                        Button(s.title) { seasonFilter = s }
+                    }
+                } label: {
+                    filterLabel(seasonFilter?.title ?? "Saison", active: seasonFilter != nil)
+                }
+            }
+            .padding(.horizontal)
         }
     }
 
@@ -602,10 +734,13 @@ struct AllGarmentsView: View {
                 Picker("Auswahl", selection: $filter) {
                     Text("Alle").tag(0)
                     Text("Favoriten").tag(1)
+                    Text("Selten").tag(3)
                     Text("Archiv").tag(2)
                 }
                 .pickerStyle(.segmented)
                 .padding(.horizontal)
+                filterRow
+                    .padding(.top, 8)
                 if results.isEmpty {
                     ContentUnavailableView.search(text: search)
                         .padding(.top, 60)
@@ -644,7 +779,7 @@ struct AllGarmentsView: View {
             .background(Palette.sheet.ignoresSafeArea())
             .navigationTitle("Alle Stücke")
             .navigationBarTitleDisplayMode(.inline)
-            .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .always), prompt: "Name, Marke, Farbe")
+            .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .always), prompt: "Zum Beispiel: rote Kleider")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Fertig") { dismiss() }

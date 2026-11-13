@@ -85,7 +85,7 @@ struct TodaySection: View {
 
     private var look: Stylist.Look? {
         let day = Calendar.german.ordinality(of: .day, in: .era, for: Date()) ?? 0
-        return Stylist.look(from: store.activeGarments, weather: todayWeather, seed: day &* 31 &+ shuffle)
+        return Stylist.look(from: store.wearableGarments, weather: todayWeather, seed: day &* 31 &+ shuffle)
     }
 
     var body: some View {
@@ -93,6 +93,14 @@ struct TodaySection: View {
         VStack(alignment: .leading, spacing: 22) {
             if let look {
                 card(look)
+            }
+            if let hint = Stylist.missingHint(store.wearableGarments) {
+                Label(hint, systemImage: "lightbulb")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Palette.card))
             }
             if !forgotten.isEmpty {
                 forgottenRow(forgotten)

@@ -284,6 +284,53 @@ final class Store {
         return Array(found.prefix(12))
     }
 
+    // MARK: Ordnung
+
+    /// Stücke, die für Vorschläge in Frage kommen: nicht archiviert, nicht zum Aussortieren vorgemerkt.
+    var wearableGarments: [Garment] { activeGarments.filter { $0.disposal == .keep } }
+
+    func garments(inArea area: String) -> [Garment] {
+        db.garments.filter { !$0.isArchived && $0.tags.contains(area) }
+    }
+
+    /// Stücke, die seit `days` Tagen nicht im Kalender vorkamen.
+    func rarelyWorn(days: Int) -> Set<UUID> {
+        guard let cutoff = Calendar.german.date(byAdding: .day, value: -days, to: Date()) else { return [] }
+        let key = cutoff.dayKey
+        let ids = db.garments.filter { g in
+            guard let last = lastWornKey(g) else { return true }
+            return last < key
+        }
+        .map(\.id)
+        return Set(ids)
+    }
+
+    var brands: [String] {
+        let all = db.garments
+            .map { $0.brand.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        return Array(Set(all)).sorted()
+    }
+
+    @discardableResult
+    func addArea(_ name: String) -> Bool {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty,
+              !db.settings.customAreas.contains(trimmed),
+              !Category.allCases.contains(where: { $0.title == trimmed }) else { return false }
+        db.settings.customAreas.append(trimmed)
+        save()
+        return true
+    }
+
+    func removeArea(_ name: String) {
+        db.settings.customAreas.removeAll { $0 == name }
+        for i in db.garments.indices {
+            db.garments[i].tags.removeAll { $0 == name }
+        }
+        save()
+    }
+
     // MARK: Wünsche und Größen
 
     func saveWish(_ wish: Wish) {

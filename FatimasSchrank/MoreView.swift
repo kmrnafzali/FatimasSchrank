@@ -96,6 +96,12 @@ struct MoreView: View {
                     } label: {
                         Label("Reisen und Koffer", systemImage: "suitcase")
                     }
+                    NavigationLink {
+                        SortOutView()
+                    } label: {
+                        Label("Aussortieren und Schneiderei", systemImage: "scissors")
+                    }
+                    Toggle("Nach Farben sortieren", isOn: $store.db.settings.rainbowOrder)
                 }
 
                 Section {

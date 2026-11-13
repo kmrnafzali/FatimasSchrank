@@ -376,7 +376,7 @@ struct TripEditor: View {
     private func create() {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         let trip = Trip(name: trimmed.isEmpty ? "Reise" : trimmed, start: start, end: max(end, start))
-        store.saveTrip(Stylist.fill(trip, garments: store.activeGarments, weather: weather.days))
+        store.saveTrip(Stylist.fill(trip, garments: store.wearableGarments, weather: weather.days))
         Haptic.success()
         dismiss()
     }
@@ -466,7 +466,7 @@ struct TripDetail: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     let variant = Int.random(in: 1...999_999)
-                    store.saveTrip(Stylist.fill(trip, garments: store.activeGarments, weather: weather.days, variant: variant))
+                    store.saveTrip(Stylist.fill(trip, garments: store.wearableGarments, weather: weather.days, variant: variant))
                     Haptic.light()
                 } label: {
                     Image(systemName: "arrow.triangle.2.circlepath")
