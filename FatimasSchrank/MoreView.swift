@@ -80,10 +80,31 @@ struct MoreView: View {
                     .disabled(working)
                     LabeledContent("Belegter Speicher", value: ByteCountFormatter.string(fromByteCount: Int64(store.storageBytes()), countStyle: .file))
                     LabeledContent("Stücke", value: "\(store.db.garments.count)")
+                    LabeledContent("Automatisch gesichert", value: store.db.settings.lastAutoBackup.map {
+                        $0.german(.dateTime.day().month(.abbreviated).year())
+                    } ?? "Noch nicht")
                 } header: {
                     Text("Sicherung")
                 } footer: {
-                    Text("Alles bleibt nur auf diesem iPhone. Speichere ab und zu eine Sicherung, zum Beispiel in iCloud Drive.")
+                    Text("Einmal pro Woche legt die App selbst eine Sicherung in der Dateien-App ab, unter Auf meinem iPhone › Schrank › Sicherungen. Sie kommt mit dem iCloud-Backup des iPhones mit. Für ein neues iPhone speichere ab und zu eine Sicherung in iCloud Drive.")
+                }
+
+                Section {
+                    Toggle("Mit Face ID schützen", isOn: Binding(
+                        get: { store.db.settings.lockEnabled },
+                        set: { on in
+                            Task {
+                                if await Unlocker.authenticate() {
+                                    store.db.settings.lockEnabled = on
+                                    store.save()
+                                }
+                            }
+                        }
+                    ))
+                } header: {
+                    Text("Schutz")
+                } footer: {
+                    Text("Beim Öffnen fragt die App nach Face ID oder dem Code des iPhones.")
                 }
 
                 Section("Mein Schrank") {

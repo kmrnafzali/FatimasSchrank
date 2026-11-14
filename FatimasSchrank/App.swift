@@ -83,8 +83,10 @@ extension UIWindow {
 struct RootView: View {
     @Environment(Store.self) private var store
     @Environment(AppState.self) private var app
+    @Environment(\.scenePhase) private var scenePhase
     @State private var doorsVisible = false
     @State private var started = false
+    @State private var locked = false
 
     var body: some View {
         @Bindable var app = app
@@ -121,11 +123,26 @@ struct RootView: View {
             WelcomeView()
                 .environment(store)
         }
+        .overlay {
+            if locked {
+                LockView {
+                    withAnimation(.easeOut(duration: 0.3)) { locked = false }
+                }
+                .transition(.opacity)
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background && store.db.settings.lockEnabled {
+                locked = true
+            }
+        }
+        .dynamicTypeSize(...DynamicTypeSize.accessibility3)
         .onReceive(NotificationCenter.default.publisher(for: .deviceShaken)) { _ in
             app.shakePulse += 1
         }
         .task {
             guard !started else { return }
+            locked = store.db.settings.lockEnabled && !app.isDemo
             if app.isDemo {
                 await Demo.prepare(store: store, app: app)
             }
@@ -136,6 +153,9 @@ struct RootView: View {
             doorsVisible = wantsDoors
             if !wantsDoors { lightUp() }
             started = true
+            if !app.isDemo {
+                await store.autoBackupIfDue()
+            }
         }
     }
 

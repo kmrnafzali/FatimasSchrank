@@ -9,6 +9,7 @@ private struct RodOffsetKey: PreferenceKey {
 struct ClosetView: View {
     @Environment(Store.self) private var store
     @Environment(AppState.self) private var app
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
 
     @State private var category: Category = .dresses
     @State private var area: String?
@@ -59,7 +60,10 @@ struct ClosetView: View {
                 header
                 chips
                 niche
-                drawers
+                // Im Querformat auf dem iPhone ist kein Platz für die Schubladen.
+                if verticalSizeClass != .compact {
+                    drawers
+                }
             }
             // Auf breiten Bildschirmen bleibt der Schrank in der Mitte.
             .frame(maxWidth: 560)

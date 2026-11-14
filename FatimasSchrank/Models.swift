@@ -412,6 +412,8 @@ struct Settings: Codable, Equatable {
     var monogramBack = ""
     /// Code für Kamrans versteckten Bereich.
     var kamranCode = "1402"
+    var lockEnabled = false
+    var lastAutoBackup: Date? = nil
 }
 
 struct Wish: Identifiable, Codable, Hashable {
@@ -534,6 +536,8 @@ extension Settings {
         monogramShape = c.value(.monogramShape, default: .oval)
         monogramBack = c.value(.monogramBack, default: "")
         kamranCode = c.value(.kamranCode, default: "1402")
+        lockEnabled = c.value(.lockEnabled, default: false)
+        lastAutoBackup = (try? c.decodeIfPresent(Date.self, forKey: .lastAutoBackup)) ?? nil
     }
 }
 

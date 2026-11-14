@@ -576,6 +576,26 @@ final class Store {
         }.value
     }
 
+    /// Einmal pro Woche eine Sicherung in "Dateien › Auf meinem iPhone › Schrank › Sicherungen".
+    /// Sie wird mit dem iCloud-Backup des iPhones mitgesichert.
+    func autoBackupIfDue() async {
+        if let last = db.settings.lastAutoBackup, Date().timeIntervalSince(last) < 7 * 24 * 3600 { return }
+        guard !db.garments.isEmpty else { return }
+        do {
+            let temp = try await makeBackup()
+            let fm = FileManager.default
+            let folder = root.appendingPathComponent("Sicherungen", isDirectory: true)
+            try fm.createDirectory(at: folder, withIntermediateDirectories: true)
+            let dest = folder.appendingPathComponent("Automatische Sicherung.zip")
+            try? fm.removeItem(at: dest)
+            try fm.moveItem(at: temp, to: dest)
+            db.settings.lastAutoBackup = Date()
+            save()
+        } catch {
+            // Beim nächsten Start wird es noch einmal versucht.
+        }
+    }
+
     func restoreBackup(from url: URL) async throws {
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
