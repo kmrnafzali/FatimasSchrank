@@ -54,17 +54,20 @@ struct DoorsView: View {
     }
 
     private var monogram: some View {
-        ZStack {
-            Ellipse()
+        let settings = store.db.settings
+        let plate = MonogramPlate.size(settings.monogramShape)
+        let back = settings.monogramBack.isEmpty ? Liebesbriefe.monogramBack : settings.monogramBack
+        return ZStack {
+            MonogramPlate(kind: settings.monogramShape)
                 .fill(Palette.brassGradient)
-                .frame(width: 96, height: 120)
+                .frame(width: plate.width, height: plate.height)
                 .shadow(color: .black.opacity(0.5), radius: 10, y: 8)
-            Ellipse()
-                .strokeBorder(Palette.brassDark, lineWidth: 1)
-                .frame(width: 84, height: 108)
+            MonogramPlate(kind: settings.monogramShape)
+                .stroke(Palette.brassDark, lineWidth: 1)
+                .frame(width: plate.width - 12, height: plate.height - 12)
             if flipped {
                 VStack(spacing: 4) {
-                    Text(Liebesbriefe.monogramBack)
+                    Text(back)
                         .font(.system(size: 22, weight: .semibold, design: .serif))
                     Text(Liebesbriefe.monogramDate)
                         .font(.system(size: 9, design: .serif))
@@ -74,9 +77,12 @@ struct DoorsView: View {
                 .foregroundStyle(Color(hex: 0x3A2618))
                 .rotation3DEffect(.degrees(180), axis: (x: 0, y: 1, z: 0))
             } else {
-                Text("F")
-                    .font(.system(size: 54, weight: .regular, design: .serif))
+                Text(settings.monogram)
+                    .font(.system(size: MonogramBadge.fontSize(for: settings.monogram), weight: .regular, design: .serif))
                     .foregroundStyle(Color(hex: 0x3A2618))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                    .frame(width: plate.width * 0.8)
             }
         }
         .rotation3DEffect(.degrees(flipped ? 180 : 0), axis: (x: 0, y: 1, z: 0))
@@ -195,7 +201,7 @@ struct CreamCapsuleStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.body.weight(.semibold))
-            .foregroundStyle(Palette.ink)
+            .foregroundStyle(Palette.onCream)
             .frame(maxWidth: .infinity, minHeight: 52)
             .background(Capsule().fill(Palette.cream))
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
@@ -260,7 +266,7 @@ struct LettersView: View {
 
     private var letters: [LoveLetter] {
         // Lesbare Briefe zuerst (neuester oben), danach die versiegelten in der Reihenfolge, in der sie sich öffnen.
-        let all = Liebesbriefe.letters
+        let all = Liebesbriefe.letters + store.db.vouchers.map(\.asLetter)
         let open = all.filter { $0.isOpen() }.sorted { $0.unlockDate > $1.unlockDate }
         let sealed = all.filter { !$0.isOpen() }.sorted { $0.unlockDate < $1.unlockDate }
         return open + sealed
@@ -293,7 +299,7 @@ struct LettersView: View {
                     Button("Fertig") { dismiss() }
                 }
             }
-            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbarColorScheme(Palette.barScheme, for: .navigationBar)
             .toolbarBackground(.hidden, for: .navigationBar)
             .sheet(item: $reading) { letter in
                 LetterReader(letter: letter)

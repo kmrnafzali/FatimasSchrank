@@ -103,6 +103,8 @@ struct RootView: View {
                 .tag(3)
         }
         .tint(Palette.accent)
+        // Neue Farbe des Schranks: alles einmal neu zeichnen.
+        .id(store.db.settings.theme)
         .overlay {
             if doorsVisible {
                 DoorsView(autoOpen: app.argument("-screen") != "doors") {

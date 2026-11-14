@@ -28,6 +28,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: de.kmrn.fatimasschrank
         PRODUCT_NAME: FatimasSchrank
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES: "AppIcon-Tueren AppIcon-Buegel AppIcon-Elfenbein"
+        ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS: YES
     info:
       path: Config/Info.plist
       properties:

@@ -84,9 +84,38 @@ struct WishEditor: View {
     @Environment(Store.self) private var store
     @Environment(\.dismiss) private var dismiss
     @State private var draft: Wish
+    @State private var celebrate = false
+    private let wasFulfilled: Bool
 
     init(original: Wish) {
         _draft = State(initialValue: original)
+        wasFulfilled = original.fulfilled
+    }
+
+    private var thanks: some View {
+        ZStack {
+            Palette.sheet.ignoresSafeArea()
+            VStack(spacing: 18) {
+                Image(systemName: "gift.fill")
+                    .font(.system(size: 44))
+                    .foregroundStyle(Palette.accent)
+                    .symbolEffect(.bounce, value: celebrate)
+                Text("Wunsch erfüllt")
+                    .font(.serif(.title))
+                Text(Liebesbriefe.wishFulfilled)
+                    .font(.serif(.body))
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+                ShareLink(item: "Danke für \(draft.name)! ❤️") {
+                    Label("Kamran danke sagen", systemImage: "heart.fill")
+                }
+                .buttonStyle(PrimaryCapsuleStyle())
+                Button("Fertig") { dismiss() }
+                    .padding(.top, 4)
+            }
+            .padding(32)
+        }
+        .transition(.opacity)
     }
 
     private var linkURL: URL? {
@@ -125,6 +154,9 @@ struct WishEditor: View {
             .background(Palette.sheet.ignoresSafeArea())
             .navigationTitle(draft.name.isEmpty ? "Neuer Wunsch" : "Wunsch")
             .navigationBarTitleDisplayMode(.inline)
+            .overlay {
+                if celebrate { thanks }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Abbrechen") { dismiss() }
@@ -135,7 +167,12 @@ struct WishEditor: View {
                         if wish.name.trimmingCharacters(in: .whitespaces).isEmpty { wish.name = "Wunsch" }
                         store.saveWish(wish)
                         Haptic.success()
-                        dismiss()
+                        if wish.fulfilled && !wasFulfilled {
+                            draft = wish
+                            withAnimation(.easeOut(duration: 0.3)) { celebrate = true }
+                        } else {
+                            dismiss()
+                        }
                     }
                     .fontWeight(.semibold)
                 }

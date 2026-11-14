@@ -28,23 +28,83 @@ extension Color {
     }
 }
 
-enum Palette {
-    // Korpus
-    static let oakTop = Color(hex: 0x4B1020)
-    static let oakBottom = Color(hex: 0x2D0913)
-    static let oakEdge = Color(hex: 0x22060D)
-    static let lacquer = LinearGradient(
-        colors: [Color(hex: 0x5C1628), Color(hex: 0x4B1020), Color(hex: 0x2D0913)],
-        startPoint: .top, endPoint: .bottom
+/// Farbwelt des Schranks, umschaltbar unter "Mehr".
+struct CabinetStyle {
+    let lacquer: [UInt32]       // oben, Mitte, unten
+    let edge: UInt32
+    let wall: [UInt32]          // Rückwand oben, Mitte, unten
+    let rose: [UInt32]          // Rückwand an besonderen Tagen
+    let door: [UInt32]          // Innenseite der Türen
+    let velvet: [UInt32]        // Samt im Schmuckkästchen
+    let text: UInt32            // Schrift auf dem Lack
+    let textSecondary: UInt32
+    let highlight: UInt32       // goldene Akzente auf dem Lack
+    let isLight: Bool
+
+    /// Wird nur über `Store.setTheme` und beim Laden gesetzt.
+    static var current = CabinetStyle.burgundy
+
+    static func of(_ theme: CabinetTheme) -> CabinetStyle {
+        switch theme {
+        case .burgundy: return .burgundy
+        case .ivory: return .ivory
+        case .midnight: return .midnight
+        }
+    }
+
+    static let burgundy = CabinetStyle(
+        lacquer: [0x5C1628, 0x4B1020, 0x2D0913], edge: 0x22060D,
+        wall: [0x54403E, 0x2F2325, 0x1E1517], rose: [0x6E2A3A, 0x40161F, 0x24090F],
+        door: [0x3A0D1A, 0x22060D], velvet: [0x7E2238, 0x4B1020],
+        text: 0xF6EFE4, textSecondary: 0xB9AD9C, highlight: 0xECD3A0, isLight: false
     )
 
+    static let midnight = CabinetStyle(
+        lacquer: [0x22304D, 0x16213A, 0x0C1322], edge: 0x080D18,
+        wall: [0x3A4256, 0x232A3B, 0x151A26], rose: [0x4A3348, 0x2E2033, 0x1A1220],
+        door: [0x16213A, 0x0C1322], velvet: [0x2F3F63, 0x16213A],
+        text: 0xF2EEE6, textSecondary: 0xA9B0BF, highlight: 0xE3CC98, isLight: false
+    )
+
+    static let ivory = CabinetStyle(
+        lacquer: [0xFBF6EE, 0xEFE6D8, 0xDDD0BC], edge: 0xC9B89E,
+        wall: [0xFFFBF4, 0xEDE3D4, 0xD6C8B2], rose: [0xFBE6E2, 0xEFCFC9, 0xD9AFA8],
+        door: [0xF3EBDF, 0xDCCFBB], velvet: [0x8A2C44, 0x5A1426],
+        text: 0x2A2118, textSecondary: 0x6F6455, highlight: 0x7A5F33, isLight: true
+    )
+}
+
+enum Palette {
+    private static var style: CabinetStyle { CabinetStyle.current }
+
+    // Korpus
+    static var oakTop: Color { Color(hex: style.lacquer[1]) }
+    static var oakBottom: Color { Color(hex: style.lacquer[2]) }
+    static var oakEdge: Color { Color(hex: style.edge) }
+    static var lacquer: LinearGradient {
+        LinearGradient(colors: style.lacquer.map { Color(hex: $0) }, startPoint: .top, endPoint: .bottom)
+    }
+
     // Rückwand
-    static let wallTop = Color(hex: 0x54403E)
-    static let wallMid = Color(hex: 0x2F2325)
-    static let wallBottom = Color(hex: 0x1E1517)
-    static let roseTop = Color(hex: 0x6E2A3A)
-    static let roseMid = Color(hex: 0x40161F)
-    static let roseBottom = Color(hex: 0x24090F)
+    static var wallTop: Color { Color(hex: style.wall[0]) }
+    static var wallMid: Color { Color(hex: style.wall[1]) }
+    static var wallBottom: Color { Color(hex: style.wall[2]) }
+    static var roseTop: Color { Color(hex: style.rose[0]) }
+    static var roseMid: Color { Color(hex: style.rose[1]) }
+    static var roseBottom: Color { Color(hex: style.rose[2]) }
+
+    // Türen und Samt
+    static var doorTop: Color { Color(hex: style.door[0]) }
+    static var doorBottom: Color { Color(hex: style.door[1]) }
+    static var velvetLight: Color { Color(hex: style.velvet[0]) }
+    static var velvetDark: Color { Color(hex: style.velvet[1]) }
+
+    /// Goldener Akzent, auf dem Lack gut lesbar.
+    static var highlight: Color { Color(hex: style.highlight) }
+    /// Schrift auf einer Fläche in `cream`.
+    static var onCream: Color { Color(hex: style.isLight ? 0xFBF7EF : 0x1F1B17) }
+    /// Helle oder dunkle Leisten, passend zum Lack.
+    static var barScheme: ColorScheme { style.isLight ? .light : .dark }
 
     // Licht und Metall
     static let led = Color(hex: 0xFFF3D6)
@@ -54,8 +114,10 @@ enum Palette {
     static let brassDark = Color(hex: 0x7D6131)
 
     // Text
-    static let cream = Color(hex: 0xF6EFE4)        // auf dunklem Holz
-    static let creamSecondary = Color(hex: 0xB9AD9C)
+    static var cream: Color { Color(hex: style.text) }              // Schrift auf dem Lack
+    static var creamSecondary: Color { Color(hex: style.textSecondary) }
+    static let creamFixed = Color(hex: 0xF6EFE4)                     // immer hell, für dunkle Überlagerungen
+    static let creamFixedSecondary = Color(hex: 0xB9AD9C)
     static let ink = Color(hex: 0x1F1B17)          // auf Papier
     static let inkSecondary = Color(hex: 0x5E5446)
     static let bronze = Color(hex: 0x7A5F33)       // Akzent auf Hell (5,4:1)
@@ -233,7 +295,7 @@ struct CabinetDoor: View {
     var body: some View {
         ZStack {
             Rectangle()
-                .fill(LinearGradient(colors: [Color(hex: 0x3A0D1A), Color(hex: 0x22060D)], startPoint: .top, endPoint: .bottom))
+                .fill(LinearGradient(colors: [Palette.doorTop, Palette.doorBottom], startPoint: .top, endPoint: .bottom))
             Rectangle()
                 .strokeBorder(Palette.brass.opacity(0.55), lineWidth: 1)
             Rectangle()
@@ -306,7 +368,7 @@ struct GlassChip: View {
         Button(action: action) {
             Text(title)
                 .font(.subheadline.weight(selected ? .semibold : .regular))
-                .foregroundStyle(selected ? Palette.ink : Palette.cream)
+                .foregroundStyle(selected ? Palette.onCream : Palette.cream)
                 .lineLimit(1)
                 .padding(.horizontal, 15)
                 .frame(minHeight: 36)

@@ -223,6 +223,11 @@ struct GarmentSheet: View {
             Text(worn == 0 ? "Noch nicht getragen" : (worn == 1 ? "Einmal getragen" : "\(worn)-mal getragen"))
                 .font(.footnote.weight(.medium))
                 .foregroundStyle(Palette.bronze)
+            if g.kamranFavorite {
+                Label("Kamrans Liebling", systemImage: "heart.circle.fill")
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(Palette.bronze)
+            }
             if g.disposal != .keep {
                 Label("Zum \(g.disposal.title) vorgemerkt", systemImage: "archivebox")
                     .font(.footnote)

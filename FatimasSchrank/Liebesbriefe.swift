@@ -40,6 +40,7 @@ enum Liebesbriefe {
     static let anniversaryCard = "Happy Jahrestag. Von allen Tagen im Jahr ist das hier mein liebster."
     static let titleCard = "Mein Lieblingsoutfit an dir? Ehrlich gesagt jedes. Aber am schönsten bist du, wenn du lachst."
     static let emptyHanger = "Ich warte auf etwas Schönes."
+    static let wishFulfilled = "Ein Wunsch ist wahr geworden. Ich hoffe, er macht dich so glücklich, wie du mich machst."
 
     static let milestones: [Int: String] = [
         100: "Hundert Stücke. Und jedes sieht an dir besser aus als auf dem Bügel.",

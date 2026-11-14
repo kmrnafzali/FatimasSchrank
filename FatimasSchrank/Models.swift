@@ -221,6 +221,8 @@ struct Garment: Identifiable, Codable, Hashable {
     /// Kaufpreis in Euro.
     var price: Double? = nil
     var occasions: [Occasion] = []
+    /// Von Kamran als Lieblingsstück an ihr markiert.
+    var kamranFavorite = false
 
     /// Platz in der Regenbogen-Ordnung, ohne Farbe ganz hinten.
     var rainbowRank: Int {
@@ -256,6 +258,61 @@ enum Season: String, Codable, CaseIterable, Identifiable {
         default: return .winter
         }
     }
+}
+
+enum CabinetTheme: String, Codable, CaseIterable, Identifiable {
+    case burgundy, ivory, midnight
+
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = CabinetTheme(rawValue: raw) ?? .burgundy
+    }
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .burgundy: return "Burgunder"
+        case .ivory: return "Elfenbein"
+        case .midnight: return "Mitternachtsblau"
+        }
+    }
+}
+
+enum MonogramKind: String, Codable, CaseIterable, Identifiable {
+    case oval, circle, shield
+
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = MonogramKind(rawValue: raw) ?? .oval
+    }
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .oval: return "Oval"
+        case .circle: return "Rund"
+        case .shield: return "Schild"
+        }
+    }
+}
+
+/// Gutschein von Kamran, liegt versiegelt im Geheimfach bis zum Tag.
+struct Voucher: Identifiable, Codable, Hashable {
+    var id = UUID()
+    var title: String
+    var text = ""
+    var unlock = Date()
+}
+
+/// Gemeinsames Foto in der mittleren Schublade.
+struct CouplePhoto: Identifiable, Codable, Hashable {
+    var id = UUID()
+    var full: String
+    var thumb: String
+    var caption = ""
+    var added = Date()
 }
 
 enum Occasion: String, Codable, CaseIterable, Identifiable {
@@ -348,6 +405,13 @@ struct Settings: Codable, Equatable {
     var milestonesShown: [Int] = []
     var customAreas: [String] = []
     var rainbowOrder = false
+    var theme = CabinetTheme.burgundy
+    var monogram = "F"
+    var monogramShape = MonogramKind.oval
+    /// Rückseite des Monogramms. Leer heißt: der Text aus Liebesbriefe.swift.
+    var monogramBack = ""
+    /// Code für Kamrans versteckten Bereich.
+    var kamranCode = "1402"
 }
 
 struct Wish: Identifiable, Codable, Hashable {
@@ -390,6 +454,8 @@ struct Database: Codable {
     var sizes: [String: String] = [:]
     var trips: [Trip] = []
     var dayPhotos: [String: DayPhoto] = [:]
+    var vouchers: [Voucher] = []
+    var couplePhotos: [CouplePhoto] = []
 }
 
 // MARK: - Nachsichtiges Lesen
@@ -423,6 +489,7 @@ extension Garment {
         alterationDue = (try? c.decodeIfPresent(Date.self, forKey: .alterationDue)) ?? nil
         price = (try? c.decodeIfPresent(Double.self, forKey: .price)) ?? nil
         occasions = c.value(.occasions, default: [])
+        kamranFavorite = c.value(.kamranFavorite, default: false)
     }
 }
 
@@ -462,6 +529,41 @@ extension Settings {
         milestonesShown = c.value(.milestonesShown, default: [])
         customAreas = c.value(.customAreas, default: [])
         rainbowOrder = c.value(.rainbowOrder, default: false)
+        theme = c.value(.theme, default: .burgundy)
+        monogram = c.value(.monogram, default: "F")
+        monogramShape = c.value(.monogramShape, default: .oval)
+        monogramBack = c.value(.monogramBack, default: "")
+        kamranCode = c.value(.kamranCode, default: "1402")
+    }
+}
+
+extension Voucher {
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(title: c.value(.title, default: "Gutschein"))
+        id = c.value(.id, default: UUID())
+        text = c.value(.text, default: "")
+        unlock = c.value(.unlock, default: Date())
+    }
+
+    /// Als Brief im Geheimfach.
+    var asLetter: LoveLetter {
+        LoveLetter(
+            id: "gutschein-\(id.uuidString)",
+            title: "Gutschein: \(title)",
+            body: text,
+            unlock: Calendar.german.dateComponents([.year, .month, .day], from: unlock)
+        )
+    }
+}
+
+extension CouplePhoto {
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(full: c.value(.full, default: ""), thumb: c.value(.thumb, default: ""))
+        id = c.value(.id, default: UUID())
+        caption = c.value(.caption, default: "")
+        added = c.value(.added, default: Date())
     }
 }
 
@@ -478,6 +580,8 @@ extension Database {
         sizes = c.value(.sizes, default: [:])
         trips = c.value(.trips, default: [])
         dayPhotos = c.value(.dayPhotos, default: [:])
+        vouchers = c.value(.vouchers, default: [])
+        couplePhotos = c.value(.couplePhotos, default: [])
     }
 }
 

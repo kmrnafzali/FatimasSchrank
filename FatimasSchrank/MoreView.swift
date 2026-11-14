@@ -12,6 +12,9 @@ struct MoreView: View {
     @State private var pendingImport: URL?
     @State private var message: String?
     @State private var showWelcome = false
+    @State private var askCode = false
+    @State private var codeInput = ""
+    @State private var showKamran = false
 
     var body: some View {
         @Bindable var store = store
@@ -44,6 +47,14 @@ struct MoreView: View {
                     Text("Wetter")
                 } footer: {
                     Text("Ohne Standortfreigabe zeigt der Kalender das Wetter für Wien.")
+                }
+
+                Section("Aussehen") {
+                    NavigationLink {
+                        AppearanceView()
+                    } label: {
+                        Label("Farbe, Monogramm und Symbol", systemImage: "paintpalette")
+                    }
                 }
 
                 Section("Bewegung") {
@@ -131,6 +142,19 @@ struct MoreView: View {
                 } footer: {
                     Text("\(store.db.settings.discovered.count) von 6 Geheimnissen entdeckt")
                 }
+
+                Section {
+                    Text("Fatimas Schrank · Version 1.0")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .frame(maxWidth: .infinity)
+                        .contentShape(Rectangle())
+                        .onLongPressGesture(minimumDuration: 2) {
+                            codeInput = ""
+                            askCode = true
+                        }
+                        .listRowBackground(Color.clear)
+                }
             }
             .scrollContentBackground(.hidden)
             .background(Palette.sheet.ignoresSafeArea())
@@ -158,6 +182,19 @@ struct MoreView: View {
             }
             .fullScreenCover(isPresented: $showWelcome) {
                 WelcomeAgain()
+            }
+            .alert("Code", isPresented: $askCode) {
+                SecureField("Code", text: $codeInput)
+                    .keyboardType(.numberPad)
+                Button("Öffnen") {
+                    if codeInput == store.db.settings.kamranCode {
+                        showKamran = true
+                    }
+                }
+                Button("Abbrechen", role: .cancel) {}
+            }
+            .sheet(isPresented: $showKamran) {
+                KamranView()
             }
         }
     }

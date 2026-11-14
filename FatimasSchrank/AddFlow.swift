@@ -178,14 +178,14 @@ private struct ImportOverlay: View {
                     } else {
                         ProgressView()
                             .controlSize(.large)
-                            .tint(Palette.cream)
+                            .tint(Palette.creamFixed)
                     }
                 }
                 .frame(height: 380)
                 VStack(spacing: 6) {
                     Text(image == nil ? "Wird vorbereitet" : "Kommt in deinen Schrank")
                         .font(.serif(.title3))
-                        .foregroundStyle(Palette.cream)
+                        .foregroundStyle(Palette.creamFixed)
                     if image != nil, let detail {
                         Text("Erkannt: \(detail)")
                             .font(.footnote)
@@ -196,7 +196,7 @@ private struct ImportOverlay: View {
                         Text("\(min(done + 1, total)) von \(total)")
                             .font(.footnote)
                             .monospacedDigit()
-                            .foregroundStyle(Palette.creamSecondary)
+                            .foregroundStyle(Palette.creamFixedSecondary)
                     }
                 }
                 Spacer()

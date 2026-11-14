@@ -81,6 +81,7 @@ final class Store {
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
             db = try decoder.decode(Database.self, from: data)
+            CabinetStyle.current = .of(db.settings.theme)
         } catch {
             // Nichts überschreiben: die unlesbare Datei wird zur Seite gelegt.
             let stamp = Int(Date().timeIntervalSince1970)
@@ -452,6 +453,66 @@ final class Store {
         save()
     }
 
+    // MARK: Aussehen
+
+    /// Farbe zuerst setzen, dann speichern: so zeichnet die App sofort in der neuen Farbe.
+    func setTheme(_ theme: CabinetTheme) {
+        CabinetStyle.current = .of(theme)
+        db.settings.theme = theme
+        save()
+    }
+
+    // MARK: Für euch beide
+
+    func saveVoucher(_ voucher: Voucher) {
+        if let i = db.vouchers.firstIndex(where: { $0.id == voucher.id }) {
+            db.vouchers[i] = voucher
+        } else {
+            db.vouchers.append(voucher)
+        }
+        save()
+    }
+
+    func deleteVoucher(_ id: UUID) {
+        db.vouchers.removeAll { $0.id == id }
+        save()
+    }
+
+    func toggleKamranFavorite(_ id: UUID) {
+        guard let i = db.garments.firstIndex(where: { $0.id == id }) else { return }
+        db.garments[i].kamranFavorite.toggle()
+        save()
+    }
+
+    @discardableResult
+    func addCouplePhoto(_ image: UIImage) async -> Bool {
+        let dir = imagesURL
+        let base = "foto-\(UUID().uuidString.prefix(8))"
+        let files = await Task.detached(priority: .userInitiated) {
+            ImagePipeline.write(ImagePipeline.scaled(image, maxSide: 1600, opaque: true), base: base, into: dir)
+        }.value
+        guard let files else { return false }
+        db.couplePhotos.insert(CouplePhoto(full: files.full, thumb: files.thumb), at: 0)
+        save()
+        return true
+    }
+
+    func updateCouplePhoto(_ photo: CouplePhoto) {
+        guard let i = db.couplePhotos.firstIndex(where: { $0.id == photo.id }) else { return }
+        db.couplePhotos[i] = photo
+        save()
+    }
+
+    func deleteCouplePhoto(_ id: UUID) {
+        guard let photo = db.couplePhotos.first(where: { $0.id == id }) else { return }
+        for file in [photo.full, photo.thumb] {
+            try? FileManager.default.removeItem(at: imageURL(file))
+            ImageCache.shared.remove(file)
+        }
+        db.couplePhotos.removeAll { $0.id == id }
+        save()
+    }
+
     // MARK: Tagebuch
 
     func dayPhoto(_ date: Date) -> DayPhoto? {
@@ -543,6 +604,7 @@ final class Store {
             return db
         }.value
         ImageCache.shared.removeAll()
+        CabinetStyle.current = .of(restored.settings.theme)
         db = restored
         save()
     }

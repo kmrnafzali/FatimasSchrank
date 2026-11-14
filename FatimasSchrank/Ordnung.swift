@@ -131,7 +131,7 @@ struct JewelryBoxView: View {
                     .padding(12)
                     .background(
                         RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(Color(hex: 0x2A0912))
+                            .fill(Palette.velvetDark.opacity(0.85))
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -146,7 +146,7 @@ struct JewelryBoxView: View {
                     Button("Fertig") { dismiss() }
                 }
             }
-            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbarColorScheme(Palette.barScheme, for: .navigationBar)
             .toolbarBackground(.hidden, for: .navigationBar)
             .sheet(item: $opened) { g in
                 GarmentSheet(id: g.id)
@@ -157,7 +157,7 @@ struct JewelryBoxView: View {
     /// Ein Fach mit Samteinlage.
     private var compartment: some View {
         RoundedRectangle(cornerRadius: 6, style: .continuous)
-            .fill(RadialGradient(colors: [Color(hex: 0x7E2238), Color(hex: 0x4B1020)], center: .top, startRadius: 2, endRadius: 120))
+            .fill(RadialGradient(colors: [Palette.velvetLight, Palette.velvetDark], center: .top, startRadius: 2, endRadius: 120))
             .overlay(
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .strokeBorder(Color.black.opacity(0.4), lineWidth: 2)

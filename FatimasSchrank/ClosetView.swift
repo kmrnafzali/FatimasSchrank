@@ -15,6 +15,7 @@ struct ClosetView: View {
     @State private var showNewArea = false
     @State private var newAreaName = ""
     @State private var showJewelry = false
+    @State private var showPhotos = false
     @State private var tilt: Double = 0
     @State private var lastOffset: CGFloat?
     @State private var settleTask: Task<Void, Never>?
@@ -48,7 +49,8 @@ struct ClosetView: View {
     }
     private var special: SpecialDay? { SpecialDay.today() }
     private var hasUnreadLetter: Bool {
-        Liebesbriefe.letters.contains { $0.isOpen() && !settings.readLetters.contains($0.id) }
+        (Liebesbriefe.letters + store.db.vouchers.map(\.asLetter))
+            .contains { $0.isOpen() && !settings.readLetters.contains($0.id) }
     }
 
     var body: some View {
@@ -99,10 +101,10 @@ struct ClosetView: View {
                 }
             }
             .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbarColorScheme(Palette.barScheme, for: .navigationBar)
             .navigationBarTitleDisplayMode(.inline)
         }
-        .toolbarColorScheme(.dark, for: .tabBar)
+        .toolbarColorScheme(Palette.barScheme, for: .tabBar)
         .addGarmentFlow(category: category, showCamera: $showCamera, showPicker: $showPicker) { single in
             // Zur erkannten Kategorie wechseln, damit das neue Stück sichtbar ist.
             area = nil
@@ -120,6 +122,9 @@ struct ClosetView: View {
         }
         .sheet(isPresented: $showJewelry) {
             JewelryBoxView()
+        }
+        .sheet(isPresented: $showPhotos) {
+            CouplePhotosView()
         }
         .alert("Neuer Bereich", isPresented: $showNewArea) {
             TextField("Zum Beispiel: Sport", text: $newAreaName)
@@ -179,7 +184,7 @@ struct ClosetView: View {
             if special == nil, let next = SpecialDay.upcoming() {
                 Text(SpecialDay.countdownText(next.day, days: next.days))
                     .font(.caption)
-                    .foregroundStyle(Palette.gold)
+                    .foregroundStyle(Palette.highlight)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -478,7 +483,7 @@ struct ClosetView: View {
         VStack(spacing: 2) {
             // Obere Schublade: das Schmuckkästchen.
             drawerFront(dot: false)
-                .frame(height: 46)
+                .frame(height: 38)
                 .contentShape(Rectangle())
                 .onTapGesture {
                     Haptic.soft()
@@ -486,8 +491,18 @@ struct ClosetView: View {
                 }
                 .accessibilityLabel("Obere Schublade, Schmuckkästchen")
                 .accessibilityAddTraits(.isButton)
+            // Mittlere Schublade: eure gemeinsamen Fotos.
+            drawerFront(dot: false)
+                .frame(height: 38)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    Haptic.soft()
+                    showPhotos = true
+                }
+                .accessibilityLabel("Mittlere Schublade, eure Fotos")
+                .accessibilityAddTraits(.isButton)
             drawerFront(dot: hasUnreadLetter)
-                .frame(height: 46)
+                .frame(height: 38)
                 .contentShape(Rectangle())
                 .offset(y: drawerPulled ? 10 : 0)
                 .onTapGesture { pullDrawer() }

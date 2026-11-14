@@ -162,7 +162,7 @@ struct TodaySection: View {
                 Text("Heute für dich")
                     .font(.footnote.weight(.semibold))
                     .tracking(1.2)
-                    .foregroundStyle(Palette.gold)
+                    .foregroundStyle(Palette.highlight)
                 Spacer()
                 if let w = todayWeather {
                     Label(w.summary, systemImage: w.symbol)
@@ -197,7 +197,7 @@ struct TodaySection: View {
                     Label("Anderer Vorschlag", systemImage: "arrow.triangle.2.circlepath")
                 }
                 .buttonStyle(.bordered)
-                .tint(Palette.gold)
+                .tint(Palette.highlight)
                 Button {
                     store.planGarments(look.garments.map(\.id), on: Date())
                     Haptic.success()
@@ -206,8 +206,8 @@ struct TodaySection: View {
                     Label(taken ? "Eingetragen" : "Heute tragen", systemImage: taken ? "checkmark" : "sun.max")
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(Palette.gold)
-                .foregroundStyle(Palette.ink)
+                .tint(Palette.highlight)
+                .foregroundStyle(Palette.onCream)
                 .disabled(taken)
             }
             .font(.subheadline)
