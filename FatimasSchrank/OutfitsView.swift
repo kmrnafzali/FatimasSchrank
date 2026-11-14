@@ -80,19 +80,59 @@ struct TodaySection: View {
     @State private var shuffle = 0
     @State private var taken = false
     @State private var opened: Garment?
+    @State private var occasion: Occasion?
 
     private var todayWeather: DayWeather? { weather.days[Date().dayKey] }
 
     private var look: Stylist.Look? {
         let day = Calendar.german.ordinality(of: .day, in: .era, for: Date()) ?? 0
-        return Stylist.look(from: store.wearableGarments, weather: todayWeather, seed: day &* 31 &+ shuffle)
+        return Stylist.look(from: store.wearableGarments, weather: todayWeather, seed: day &* 31 &+ shuffle,
+                            avoid: store.recentlyWorn(days: 3), occasion: occasion)
+    }
+
+    private var occasionPicker: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                occasionChip(nil, title: "Jeder Anlass")
+                ForEach(Occasion.allCases) { o in
+                    occasionChip(o, title: o.title)
+                }
+            }
+        }
+    }
+
+    private func occasionChip(_ o: Occasion?, title: String) -> some View {
+        let on = occasion == o
+        return Button {
+            Haptic.light()
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+                occasion = o
+                taken = false
+            }
+        } label: {
+            Text(title)
+                .font(.footnote.weight(on ? .semibold : .regular))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(Capsule().fill(on ? Palette.accent.opacity(0.18) : Palette.card))
+                .foregroundStyle(on ? Palette.accent : Color.primary)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(on ? .isSelected : [])
     }
 
     var body: some View {
         let forgotten = store.forgottenGarments(days: 60)
         VStack(alignment: .leading, spacing: 22) {
+            if !store.wearableGarments.isEmpty {
+                occasionPicker
+            }
             if let look {
                 card(look)
+            } else if let occasion {
+                Text("Für \(occasion.title) hast du noch keine Stücke markiert. Das geht im Bearbeiten-Fenster unter Anlässe.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
             if let hint = Stylist.missingHint(store.wearableGarments) {
                 Label(hint, systemImage: "lightbulb")

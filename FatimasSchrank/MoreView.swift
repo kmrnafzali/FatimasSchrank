@@ -101,6 +101,16 @@ struct MoreView: View {
                     } label: {
                         Label("Aussortieren und Schneiderei", systemImage: "scissors")
                     }
+                    NavigationLink {
+                        ShopCheckView()
+                    } label: {
+                        Label("Im Laden prüfen", systemImage: "bag")
+                    }
+                    NavigationLink {
+                        BudgetView()
+                    } label: {
+                        Label("Budget", systemImage: "eurosign.circle")
+                    }
                     Toggle("Nach Farben sortieren", isOn: $store.db.settings.rainbowOrder)
                 }
 

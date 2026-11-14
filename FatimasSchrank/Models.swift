@@ -218,6 +218,9 @@ struct Garment: Identifiable, Codable, Hashable {
     /// Notiz für den Schneider.
     var alteration = ""
     var alterationDue: Date? = nil
+    /// Kaufpreis in Euro.
+    var price: Double? = nil
+    var occasions: [Occasion] = []
 
     /// Platz in der Regenbogen-Ordnung, ohne Farbe ganz hinten.
     var rainbowRank: Int {
@@ -255,6 +258,29 @@ enum Season: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+enum Occasion: String, Codable, CaseIterable, Identifiable {
+    case office, date, wedding, party, casual, sport, travel
+
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = Occasion(rawValue: raw) ?? .casual
+    }
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .office: return "Büro"
+        case .date: return "Date"
+        case .wedding: return "Hochzeit"
+        case .party: return "Feier"
+        case .casual: return "Alltag"
+        case .sport: return "Sport"
+        case .travel: return "Reise"
+        }
+    }
+}
+
 enum Disposal: String, Codable, CaseIterable, Identifiable {
     case keep, sell, donate
 
@@ -287,6 +313,9 @@ struct PlanEntry: Identifiable, Codable, Hashable {
     var outfitID: UUID?
     var garmentIDs: [UUID] = []  // für "Heute tragen" ohne Outfit
     var note = ""
+    /// Wetter, wie es beim Planen vorhergesagt war. Daran erkennt die App Änderungen.
+    var forecastTmax: Double? = nil
+    var forecastRain: Bool? = nil
 }
 
 enum PlaceMode: String, Codable, CaseIterable, Identifiable {
@@ -392,6 +421,8 @@ extension Garment {
         disposal = c.value(.disposal, default: .keep)
         alteration = c.value(.alteration, default: "")
         alterationDue = (try? c.decodeIfPresent(Date.self, forKey: .alterationDue)) ?? nil
+        price = (try? c.decodeIfPresent(Double.self, forKey: .price)) ?? nil
+        occasions = c.value(.occasions, default: [])
     }
 }
 
@@ -412,6 +443,8 @@ extension PlanEntry {
         outfitID = (try? c.decodeIfPresent(UUID.self, forKey: .outfitID)) ?? nil
         garmentIDs = c.value(.garmentIDs, default: [])
         note = c.value(.note, default: "")
+        forecastTmax = (try? c.decodeIfPresent(Double.self, forKey: .forecastTmax)) ?? nil
+        forecastRain = (try? c.decodeIfPresent(Bool.self, forKey: .forecastRain)) ?? nil
     }
 }
 

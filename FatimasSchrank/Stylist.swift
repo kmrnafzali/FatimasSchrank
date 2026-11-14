@@ -49,10 +49,23 @@ enum Stylist {
     }
 
     /// Ein ganzer Look: Kleid oder Oberteil mit Hose, dazu Schuhe, Tasche und bei Kälte oder Regen ein Mantel.
-    static func look(from all: [Garment], weather: DayWeather?, seed: Int) -> Look? {
-        let items = all.filter { !$0.isArchived }
+    /// `avoid`: zuletzt getragene Stücke, die möglichst nicht wieder vorkommen.
+    /// `occasion`: Kleid, Oberteil und Hose müssen für diesen Anlass markiert sein.
+    static func look(from all: [Garment], weather: DayWeather?, seed: Int,
+                     avoid: Set<UUID> = [], occasion: Occasion? = nil) -> Look? {
+        let core: Set<Category> = [.dresses, .tops, .bottoms]
+        let items = all.filter { g in
+            if g.isArchived { return false }
+            guard let occasion else { return true }
+            if g.occasions.contains(occasion) { return true }
+            return !core.contains(g.category) && g.occasions.isEmpty
+        }
         var rng = SplitMix64(seed: seed)
-        func pool(_ c: Category) -> [Garment] { items.filter { $0.category == c } }
+        func pool(_ c: Category) -> [Garment] {
+            let inCategory = items.filter { $0.category == c }
+            let fresh = inCategory.filter { !avoid.contains($0.id) }
+            return fresh.isEmpty ? inCategory : fresh
+        }
 
         let cold = (weather?.tmax ?? 15) < 15 || (weather?.isRainy ?? false)
         let dresses = pool(.dresses)

@@ -248,9 +248,43 @@ struct GarmentEditor: View {
     @Environment(Store.self) private var store
     @Environment(\.dismiss) private var dismiss
     @State private var draft: Garment
+    @State private var priceText: String
 
     init(original: Garment) {
         _draft = State(initialValue: original)
+        _priceText = State(initialValue: original.price.map {
+            String(format: "%.2f", $0).replacingOccurrences(of: ".", with: ",")
+        } ?? "")
+    }
+
+    /// "49,90 €" → 49.9
+    static func parsePrice(_ text: String) -> Double? {
+        let cleaned = text
+            .replacingOccurrences(of: "€", with: "")
+            .replacingOccurrences(of: " ", with: "")
+            .replacingOccurrences(of: ",", with: ".")
+        guard let value = Double(cleaned), value > 0 else { return nil }
+        return value
+    }
+
+    private func occasionChip(_ o: Occasion) -> some View {
+        let on = draft.occasions.contains(o)
+        return Button {
+            if on {
+                draft.occasions.removeAll { $0 == o }
+            } else {
+                draft.occasions.append(o)
+            }
+        } label: {
+            Text(o.title)
+                .font(.footnote.weight(on ? .semibold : .regular))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Capsule().fill(on ? Palette.accent.opacity(0.2) : Palette.card))
+                .foregroundStyle(on ? Palette.accent : Color.primary)
+        }
+        .buttonStyle(.borderless)
+        .accessibilityAddTraits(on ? .isSelected : [])
     }
 
     private func seasonChip(_ s: Season) -> some View {
@@ -298,6 +332,8 @@ struct GarmentEditor: View {
                     }
                     TextField("Marke", text: $draft.brand)
                     TextField("Größe", text: $draft.size)
+                    TextField("Preis in Euro (optional)", text: $priceText)
+                        .keyboardType(.decimalPad)
                 }
                 Section("Farben") {
                     ColorPickerRow(selection: $draft.colors)
@@ -320,6 +356,19 @@ struct GarmentEditor: View {
                             seasonChip(s)
                         }
                     }
+                }
+                Section {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(Occasion.allCases) { o in
+                                occasionChip(o)
+                            }
+                        }
+                    }
+                } header: {
+                    Text("Anlässe")
+                } footer: {
+                    Text("Danach richtet sich der Dresscode im Outfits-Tab.")
                 }
                 if !store.db.settings.customAreas.isEmpty {
                     Section("Bereiche") {
@@ -369,6 +418,7 @@ struct GarmentEditor: View {
                     Button("Sichern") {
                         var g = draft
                         if g.name.trimmingCharacters(in: .whitespaces).isEmpty { g.name = g.category.singular }
+                        g.price = Self.parsePrice(priceText)
                         store.update(g)
                         Reminders.updateAlteration(for: g)
                         Haptic.light()

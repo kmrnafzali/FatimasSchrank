@@ -19,6 +19,7 @@ struct CalendarView: View {
     @State private var photoFor: DayPick?
     @State private var showPhotoPicker = false
     @State private var photoItem: PhotosPickerItem?
+    @State private var planMessage: String?
 
     private var days: [Date] {
         (0..<7).compactMap { Calendar.german.date(byAdding: .day, value: $0, to: weekStart) }
@@ -76,6 +77,13 @@ struct CalendarView: View {
             .background(Palette.sheet.ignoresSafeArea())
             .navigationTitle("Kalender")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        planWeek()
+                    } label: {
+                        Label("Woche planen", systemImage: "wand.and.stars")
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Heute") {
                         withAnimation { weekStart = Calendar.german.dateInterval(of: .weekOfYear, for: Date())?.start ?? Date() }
@@ -98,6 +106,17 @@ struct CalendarView: View {
                     location.request()
                 }
                 await weather.refresh(for: place)
+                // Hat sich das Wetter für einen geplanten Tag deutlich geändert, kommt eine Mitteilung.
+                if !app.isDemo {
+                    for change in store.stampForecasts(weather.days) {
+                        Reminders.weatherChanged(change)
+                    }
+                }
+            }
+            .alert("Woche geplant", isPresented: Binding(get: { planMessage != nil }, set: { if !$0 { planMessage = nil } })) {
+                Button("OK", role: .cancel) { planMessage = nil }
+            } message: {
+                Text(planMessage ?? "")
             }
             .onChange(of: place) { _, newPlace in
                 Task { await weather.refresh(for: newPlace) }
@@ -115,6 +134,41 @@ struct CalendarView: View {
                 }
             }
         }
+    }
+
+    /// Plant jeden freien Tag der angezeigten Woche ab heute, ohne Stücke doppelt zu verwenden.
+    private func planWeek() {
+        let todayKey = Date().dayKey
+        var avoid = store.recentlyWorn(days: 3)
+        var planned = 0
+        for day in days where day.dayKey >= todayKey && store.entries(on: day).isEmpty {
+            let seed = Int.random(in: 0...999_999)
+            guard let look = Stylist.look(from: store.wearableGarments, weather: weather.days[day.dayKey],
+                                          seed: seed, avoid: avoid) else { continue }
+            store.planGarments(look.garments.map(\.id), on: day)
+            avoid.formUnion(look.garments.map(\.id))
+            planned += 1
+        }
+        Haptic.success()
+        if store.wearableGarments.isEmpty {
+            planMessage = "Leg zuerst ein paar Stücke in deinen Schrank."
+        } else if planned == 0 {
+            planMessage = "Alle Tage dieser Woche sind schon geplant."
+        } else {
+            planMessage = planned == 1
+                ? "Ein Tag ist geplant. Nach links wischen, um einen Look zu tauschen."
+                : "\(planned) Tage sind geplant. Nach links wischen, um einen Look zu tauschen."
+        }
+    }
+
+    /// Ersetzt einen geplanten Look durch einen anderen.
+    private func swap(_ entry: PlanEntry) {
+        var avoid = store.recentlyWorn(days: 3)
+        avoid.formUnion(entry.garmentIDs)
+        guard let look = Stylist.look(from: store.wearableGarments, weather: weather.days[entry.day],
+                                      seed: Int.random(in: 0...999_999), avoid: avoid) else { return }
+        store.replacePlan(entry.id, garmentIDs: look.garments.map(\.id))
+        Haptic.light()
     }
 
     private func shiftWeek(_ by: Int) {
@@ -184,10 +238,20 @@ struct CalendarView: View {
                     if !entry.note.isEmpty {
                         Text(entry.note).font(.footnote).foregroundStyle(.secondary)
                     }
+                    if let w = weather.days[day.dayKey], w.isRainy,
+                       !store.garments(for: entry).contains(where: { $0.category == .outerwear }) {
+                        Label("Regen gemeldet, nimm einen Mantel mit", systemImage: "umbrella")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
                 }
             }
             .swipeActions {
                 Button("Entfernen", role: .destructive) { store.removePlan(entry.id) }
+                if entry.outfitID == nil {
+                    Button("Tauschen") { swap(entry) }
+                        .tint(Palette.accent)
+                }
             }
         }
 

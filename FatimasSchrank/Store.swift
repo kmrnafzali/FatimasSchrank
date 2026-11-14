@@ -257,6 +257,76 @@ final class Store {
         save()
     }
 
+    /// Was in den `days` Tagen vor heute eingeplant war (heute selbst zählt nicht).
+    func recentlyWorn(days: Int) -> Set<UUID> {
+        guard let cutoff = Calendar.german.date(byAdding: .day, value: -days, to: Date()) else { return [] }
+        let from = cutoff.dayKey
+        let to = Date().dayKey
+        var ids = Set<UUID>()
+        for entry in db.plan where entry.day >= from && entry.day < to {
+            for g in garments(for: entry) {
+                ids.insert(g.id)
+            }
+        }
+        return ids
+    }
+
+    func replacePlan(_ id: UUID, garmentIDs: [UUID]) {
+        guard let i = db.plan.firstIndex(where: { $0.id == id }) else { return }
+        db.plan[i].garmentIDs = garmentIDs
+        db.plan[i].forecastTmax = nil
+        db.plan[i].forecastRain = nil
+        save()
+    }
+
+    struct ForecastChange {
+        let entryID: UUID
+        let title: String
+        let day: String
+        let weather: DayWeather
+    }
+
+    /// Merkt sich die Vorhersage zu geplanten Tagen und meldet, wo sie sich deutlich geändert hat.
+    func stampForecasts(_ weather: [String: DayWeather]) -> [ForecastChange] {
+        let today = Date().dayKey
+        var changes: [ForecastChange] = []
+        var dirty = false
+        for i in db.plan.indices where db.plan[i].day >= today {
+            let entry = db.plan[i]
+            guard let w = weather[entry.day] else { continue }
+            if let oldTmax = entry.forecastTmax, let oldRain = entry.forecastRain {
+                let changed = (w.isRainy && !oldRain) || abs(w.tmax - oldTmax) >= 6
+                if !changed { continue }
+                changes.append(ForecastChange(entryID: entry.id, title: title(for: entry), day: entry.day, weather: w))
+            }
+            db.plan[i].forecastTmax = w.tmax
+            db.plan[i].forecastRain = w.isRainy
+            dirty = true
+        }
+        if dirty { save() }
+        return changes
+    }
+
+    struct MonthSpending: Identifiable {
+        let month: String   // yyyy-MM
+        let total: Double
+        let items: [Garment]
+        var id: String { month }
+    }
+
+    /// Ausgaben je Monat, nach dem Tag, an dem das Stück in den Schrank kam.
+    func spendingByMonth() -> [MonthSpending] {
+        var groups: [String: [Garment]] = [:]
+        for g in db.garments where (g.price ?? 0) > 0 {
+            groups[String(g.added.dayKey.prefix(7)), default: []].append(g)
+        }
+        return groups.keys.sorted(by: >).map { key in
+            let items = groups[key] ?? []
+            let total = items.reduce(0.0) { $0 + ($1.price ?? 0) }
+            return MonthSpending(month: key, total: total, items: items)
+        }
+    }
+
     /// Letzter Tag bis heute, an dem das Stück eingeplant war.
     func lastWornKey(_ g: Garment) -> String? {
         let today = Date().dayKey
