@@ -1,5 +1,6 @@
 import SwiftUI
 import UniformTypeIdentifiers
+import AppIntents
 
 struct MoreView: View {
     @Environment(Store.self) private var store
@@ -107,6 +108,18 @@ struct MoreView: View {
                     Text("Beim Öffnen fragt die App nach Face ID oder dem Code des iPhones.")
                 }
 
+                Section {
+                    SiriTipView(intent: TodayOutfitIntent())
+                        .siriTipViewStyle(.automatic)
+                    ShortcutsLink()
+                        .shortcutsLinkStyle(.automaticOutline)
+                        .frame(maxWidth: .infinity)
+                } header: {
+                    Text("Siri")
+                } footer: {
+                    Text("Sag zum Beispiel: \"Hey Siri, Schrank Outfit für heute\". Erscheint der Befehl nicht, öffne die App einmal und warte ein paar Minuten.")
+                }
+
                 Section("Mein Schrank") {
                     NavigationLink {
                         WishlistView()
@@ -204,15 +217,25 @@ struct MoreView: View {
             .fullScreenCover(isPresented: $showWelcome) {
                 WelcomeAgain()
             }
-            .alert("Code", isPresented: $askCode) {
-                SecureField("Code", text: $codeInput)
+            .alert(store.db.settings.kamranCode.isEmpty ? "Neuen Code festlegen" : "Code", isPresented: $askCode) {
+                SecureField("Mindestens 4 Ziffern", text: $codeInput)
                     .keyboardType(.numberPad)
-                Button("Öffnen") {
-                    if codeInput == store.db.settings.kamranCode {
+                Button(store.db.settings.kamranCode.isEmpty ? "Festlegen" : "Öffnen") {
+                    let code = codeInput.trimmingCharacters(in: .whitespaces)
+                    if store.db.settings.kamranCode.isEmpty {
+                        guard code.count >= 4 else { return }
+                        store.db.settings.kamranCode = code
+                        store.save()
+                        showKamran = true
+                    } else if code == store.db.settings.kamranCode {
                         showKamran = true
                     }
                 }
                 Button("Abbrechen", role: .cancel) {}
+            } message: {
+                Text(store.db.settings.kamranCode.isEmpty
+                     ? "Diesen Code brauchst du später, um hierher zurückzukommen."
+                     : "")
             }
             .sheet(isPresented: $showKamran) {
                 KamranView()

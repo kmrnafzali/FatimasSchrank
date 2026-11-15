@@ -154,9 +154,12 @@ enum Haptic {
 // MARK: - Holz, Licht, Messing, Glas
 
 struct WoodBackground: View {
+    @Environment(Store.self) private var store
     var shade: Double = 0.3
 
     var body: some View {
+        // Liest die Farbe, damit sich der Hintergrund beim Umschalten sofort neu zeichnet.
+        let _ = store.db.settings.theme
         ZStack {
             // Weinroter Lack mit einem Hauch Maserung darunter.
             Rectangle()
@@ -179,10 +182,12 @@ struct WoodBackground: View {
 
 /// Die beleuchtete Rückwand des Schranks.
 struct BackWall: View {
+    @Environment(Store.self) private var store
     var light: Double = 1
     var rose = false
 
     var body: some View {
+        let _ = store.db.settings.theme
         ZStack {
             LinearGradient(
                 colors: rose ? [Palette.roseTop, Palette.roseMid, Palette.roseBottom]
@@ -289,10 +294,12 @@ struct HangerBar: Shape {
 
 /// Eine weit geöffnete Schranktür mit Spiegel auf der Innenseite.
 struct CabinetDoor: View {
+    @Environment(Store.self) private var store
     enum Side { case leading, trailing }
     let side: Side
 
     var body: some View {
+        let _ = store.db.settings.theme
         ZStack {
             Rectangle()
                 .fill(LinearGradient(colors: [Palette.doorTop, Palette.doorBottom], startPoint: .top, endPoint: .bottom))
@@ -360,11 +367,13 @@ struct PaperTag<Content: View>: View {
 // MARK: - Bedienelemente
 
 struct GlassChip: View {
+    @Environment(Store.self) private var store
     let title: String
     let selected: Bool
     let action: () -> Void
 
     var body: some View {
+        let _ = store.db.settings.theme
         Button(action: action) {
             Text(title)
                 .font(.subheadline.weight(selected ? .semibold : .regular))

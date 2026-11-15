@@ -21,6 +21,41 @@ enum Unlocker {
     }
 }
 
+/// Eigenes Fenster über allem, auch über offenen Blättern und Fenstern der App.
+@MainActor
+final class LockWindow {
+    static let shared = LockWindow()
+    private var window: UIWindow?
+
+    var isShowing: Bool { window != nil }
+
+    func show(store: Store) {
+        guard window == nil,
+              let scene = UIApplication.shared.connectedScenes
+                .compactMap({ $0 as? UIWindowScene })
+                .first else { return }
+        let w = UIWindow(windowScene: scene)
+        w.windowLevel = .alert + 1
+        let root = LockView { LockWindow.shared.hide() }
+            .environment(store)
+        let host = UIHostingController(rootView: AnyView(root))
+        host.view.backgroundColor = .clear
+        w.rootViewController = host
+        w.makeKeyAndVisible()
+        window = w
+    }
+
+    func hide() {
+        guard let w = window else { return }
+        UIView.animate(withDuration: 0.3, animations: {
+            w.alpha = 0
+        }, completion: { _ in
+            w.isHidden = true
+        })
+        window = nil
+    }
+}
+
 struct LockView: View {
     @Environment(Store.self) private var store
     let onUnlock: () -> Void

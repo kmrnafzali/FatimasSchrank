@@ -387,12 +387,12 @@ struct KamranView: View {
                     Text("Diese Stücke bekommen auf dem Etikett den Hinweis \"Kamrans Liebling\".")
                 }
                 Section {
-                    TextField("Code", text: $store.db.settings.kamranCode)
+                    TextField("Mindestens 4 Ziffern", text: $store.db.settings.kamranCode)
                         .keyboardType(.numberPad)
                 } header: {
                     Text("Code für diesen Bereich")
                 } footer: {
-                    Text("Erreichbar unter Mehr: ganz unten zwei Sekunden auf die Versionszeile drücken.")
+                    Text("Erreichbar unter Mehr: ganz unten zwei Sekunden auf die Versionszeile drücken. Nimm kein Datum, das Fatima erraten könnte.")
                 }
             }
             .scrollContentBackground(.hidden)

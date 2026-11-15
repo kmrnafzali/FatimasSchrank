@@ -86,7 +86,6 @@ struct RootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var doorsVisible = false
     @State private var started = false
-    @State private var locked = false
 
     var body: some View {
         @Bindable var app = app
@@ -105,8 +104,6 @@ struct RootView: View {
                 .tag(3)
         }
         .tint(Palette.accent)
-        // Neue Farbe des Schranks: alles einmal neu zeichnen.
-        .id(store.db.settings.theme)
         .overlay {
             if doorsVisible {
                 DoorsView(autoOpen: app.argument("-screen") != "doors") {
@@ -123,17 +120,9 @@ struct RootView: View {
             WelcomeView()
                 .environment(store)
         }
-        .overlay {
-            if locked {
-                LockView {
-                    withAnimation(.easeOut(duration: 0.3)) { locked = false }
-                }
-                .transition(.opacity)
-            }
-        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background && store.db.settings.lockEnabled {
-                locked = true
+                LockWindow.shared.show(store: store)
             }
         }
         .dynamicTypeSize(...DynamicTypeSize.accessibility3)
@@ -142,7 +131,9 @@ struct RootView: View {
         }
         .task {
             guard !started else { return }
-            locked = store.db.settings.lockEnabled && !app.isDemo
+            if store.db.settings.lockEnabled && !app.isDemo {
+                LockWindow.shared.show(store: store)
+            }
             if app.isDemo {
                 await Demo.prepare(store: store, app: app)
             }

@@ -410,8 +410,8 @@ struct Settings: Codable, Equatable {
     var monogramShape = MonogramKind.oval
     /// Rückseite des Monogramms. Leer heißt: der Text aus Liebesbriefe.swift.
     var monogramBack = ""
-    /// Code für Kamrans versteckten Bereich.
-    var kamranCode = "1402"
+    /// Code für Kamrans versteckten Bereich. Leer, bis Kamran ihn beim ersten Öffnen festlegt.
+    var kamranCode = ""
     var lockEnabled = false
     var lastAutoBackup: Date? = nil
 }
@@ -535,7 +535,7 @@ extension Settings {
         monogram = c.value(.monogram, default: "F")
         monogramShape = c.value(.monogramShape, default: .oval)
         monogramBack = c.value(.monogramBack, default: "")
-        kamranCode = c.value(.kamranCode, default: "1402")
+        kamranCode = c.value(.kamranCode, default: "")
         lockEnabled = c.value(.lockEnabled, default: false)
         lastAutoBackup = (try? c.decodeIfPresent(Date.self, forKey: .lastAutoBackup)) ?? nil
     }
