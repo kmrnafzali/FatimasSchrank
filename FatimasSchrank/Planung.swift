@@ -13,11 +13,10 @@ extension Reminders {
         let weatherText = change.weather.isRainy ? "regnerisch" : "anders als gedacht"
         let body = "Am \(dayText) wird es \(weatherText): \(change.weather.summary). Geplant ist: \(change.title)."
         // Am Morgen des Tages um 7 Uhr, sonst gleich.
-        var fireIn: TimeInterval = 5
-        if let day = Date.fromDayKey(change.day),
-           let morning = Calendar.german.date(bySettingHour: 7, minute: 0, second: 0, of: day) {
-            fireIn = max(5, morning.timeIntervalSinceNow)
+        let morning = Date.fromDayKey(change.day).flatMap {
+            Calendar.german.date(bySettingHour: 7, minute: 0, second: 0, of: $0)
         }
+        let fireIn: TimeInterval = max(5, morning?.timeIntervalSinceNow ?? 5)
         center.requestAuthorization(options: [.alert, .sound]) { granted, _ in
             guard granted else { return }
             let content = UNMutableNotificationContent()
