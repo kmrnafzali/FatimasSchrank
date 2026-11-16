@@ -154,7 +154,7 @@ final class Store {
     func deleteGarment(_ id: UUID) {
         guard let g = garment(id) else { return }
         let fm = FileManager.default
-        for file in [g.imageFile, g.thumbFile] where !file.isEmpty {
+        for file in [g.imageFile, g.thumbFile, g.labelFile] where !file.isEmpty {
             try? fm.removeItem(at: imageURL(file))
             ImageCache.shared.remove(file)
         }
@@ -358,7 +358,48 @@ final class Store {
     // MARK: Ordnung
 
     /// Stücke, die für Vorschläge in Frage kommen: nicht archiviert, nicht zum Aussortieren vorgemerkt.
-    var wearableGarments: [Garment] { activeGarments.filter { $0.disposal == .keep } }
+    var wearableGarments: [Garment] {
+        activeGarments.filter { $0.disposal == .keep && !$0.isUnavailable }
+    }
+
+    // MARK: Bewertung
+
+    func setRating(_ entryID: UUID, rating: Int?) {
+        guard let i = db.plan.firstIndex(where: { $0.id == entryID }) else { return }
+        db.plan[i].rating = rating
+        save()
+    }
+
+    /// Durchschnittliche Herzen je Stück, nur für Stücke mit mindestens einer Bewertung.
+    func ratings() -> [UUID: Double] {
+        var sums: [UUID: Double] = [:]
+        var counts: [UUID: Int] = [:]
+        for entry in db.plan {
+            guard let rating = entry.rating else { continue }
+            for g in garments(for: entry) {
+                sums[g.id, default: 0] += Double(rating)
+                counts[g.id, default: 0] += 1
+            }
+        }
+        var result: [UUID: Double] = [:]
+        for (id, sum) in sums {
+            if let n = counts[id], n > 0 { result[id] = sum / Double(n) }
+        }
+        return result
+    }
+
+    /// Foto vom Etikett ablegen, gibt den Dateinamen zurück.
+    func saveLabelImage(_ image: UIImage) async -> String? {
+        let dir = imagesURL
+        let base = "etikett-\(UUID().uuidString.prefix(8))"
+        let files = await Task.detached(priority: .userInitiated) {
+            ImagePipeline.write(ImagePipeline.scaled(image, maxSide: 1200, opaque: true), base: base, into: dir)
+        }.value
+        guard let files else { return nil }
+        // Die kleine Vorschau braucht niemand.
+        try? FileManager.default.removeItem(at: imageURL(files.thumb))
+        return files.full
+    }
 
     func garments(inArea area: String) -> [Garment] {
         db.garments.filter { !$0.isArchived && $0.tags.contains(area) }

@@ -29,6 +29,63 @@ extension Reminders {
     }
 }
 
+extension Reminders {
+    /// Plant für die nächsten sieben Tage je eine Mitteilung am Morgen mit Look und Wetter.
+    /// Gibt es einen geplanten Look, kommt der, sonst ein Vorschlag.
+    @MainActor
+    static func scheduleMorning(store: Store, weather: [String: DayWeather]) async {
+        let center = UNUserNotificationCenter.current()
+        let cal = Calendar.german
+        let now = Date()
+
+        // Alte Mitteilungen immer zuerst entfernen.
+        var oldIDs: [String] = []
+        for offset in 0..<16 {
+            if let day = cal.date(byAdding: .day, value: offset, to: now) {
+                oldIDs.append("morgen-\(day.dayKey)")
+            }
+        }
+        center.removePendingNotificationRequests(withIdentifiers: oldIDs)
+
+        let settings = store.db.settings
+        guard settings.morningEnabled else { return }
+        let granted = (try? await center.requestAuthorization(options: [.alert, .sound])) ?? false
+        guard granted else { return }
+
+        let ratings = store.ratings()
+        var avoid = store.recentlyWorn(days: 3)
+        for offset in 0..<7 {
+            guard let day = cal.date(byAdding: .day, value: offset, to: now),
+                  let fire = cal.date(bySettingHour: settings.morningHour, minute: settings.morningMinute, second: 0, of: day),
+                  fire > now else { continue }
+            let key = day.dayKey
+            let forecast = weather[key]
+
+            var names: [String] = []
+            if let entry = store.entries(on: day).first {
+                names = store.garments(for: entry).map(\.name)
+            } else {
+                let ordinal = cal.ordinality(of: .day, in: .era, for: day) ?? offset
+                if let look = Stylist.look(from: store.wearableGarments, weather: forecast, seed: ordinal &* 31,
+                                           avoid: avoid, ratings: ratings) {
+                    names = look.garments.map(\.name)
+                    avoid.formUnion(look.garments.map(\.id))
+                }
+            }
+            guard !names.isEmpty else { continue }
+
+            let weatherText = forecast.map { "\($0.summary), \($0.tip). " } ?? ""
+            let content = UNMutableNotificationContent()
+            content.title = "Guten Morgen, Fatima"
+            content.body = "\(weatherText)Wie wäre es mit \(ListFormatter.localizedString(byJoining: names))?"
+            content.sound = .default
+            let parts = cal.dateComponents([.year, .month, .day, .hour, .minute], from: fire)
+            let trigger = UNCalendarNotificationTrigger(dateMatching: parts, repeats: false)
+            try? await center.add(UNNotificationRequest(identifier: "morgen-\(key)", content: content, trigger: trigger))
+        }
+    }
+}
+
 // MARK: - Reihe mit Stücken
 
 struct PieceStrip: View {

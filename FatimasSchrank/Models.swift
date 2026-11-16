@@ -223,6 +223,16 @@ struct Garment: Identifiable, Codable, Hashable {
     var occasions: [Occasion] = []
     /// Von Kamran als Lieblingsstück an ihr markiert.
     var kamranFavorite = false
+    var material = ""
+    var articleNumber = ""
+    /// Foto vom Etikett.
+    var labelFile = ""
+    var inLaundry = false
+    var lentTo = ""
+    var lentSince: Date? = nil
+
+    /// Nicht im Schrank, also nicht für Vorschläge.
+    var isUnavailable: Bool { inLaundry || !lentTo.isEmpty }
 
     /// Platz in der Regenbogen-Ordnung, ohne Farbe ganz hinten.
     var rainbowRank: Int {
@@ -373,6 +383,8 @@ struct PlanEntry: Identifiable, Codable, Hashable {
     /// Wetter, wie es beim Planen vorhergesagt war. Daran erkennt die App Änderungen.
     var forecastTmax: Double? = nil
     var forecastRain: Bool? = nil
+    /// Herzen nach dem Tragen, 1 bis 5.
+    var rating: Int? = nil
 }
 
 enum PlaceMode: String, Codable, CaseIterable, Identifiable {
@@ -412,6 +424,9 @@ struct Settings: Codable, Equatable {
     var monogramBack = ""
     /// Code für Kamrans versteckten Bereich. Leer, bis Kamran ihn beim ersten Öffnen festlegt.
     var kamranCode = ""
+    var morningEnabled = false
+    var morningHour = 8
+    var morningMinute = 0
     var lastAutoBackup: Date? = nil
 }
 
@@ -491,6 +506,12 @@ extension Garment {
         price = (try? c.decodeIfPresent(Double.self, forKey: .price)) ?? nil
         occasions = c.value(.occasions, default: [])
         kamranFavorite = c.value(.kamranFavorite, default: false)
+        material = c.value(.material, default: "")
+        articleNumber = c.value(.articleNumber, default: "")
+        labelFile = c.value(.labelFile, default: "")
+        inLaundry = c.value(.inLaundry, default: false)
+        lentTo = c.value(.lentTo, default: "")
+        lentSince = (try? c.decodeIfPresent(Date.self, forKey: .lentSince)) ?? nil
     }
 }
 
@@ -513,6 +534,7 @@ extension PlanEntry {
         note = c.value(.note, default: "")
         forecastTmax = (try? c.decodeIfPresent(Double.self, forKey: .forecastTmax)) ?? nil
         forecastRain = (try? c.decodeIfPresent(Bool.self, forKey: .forecastRain)) ?? nil
+        rating = (try? c.decodeIfPresent(Int.self, forKey: .rating)) ?? nil
     }
 }
 
@@ -535,6 +557,9 @@ extension Settings {
         monogramShape = c.value(.monogramShape, default: .oval)
         monogramBack = c.value(.monogramBack, default: "")
         kamranCode = c.value(.kamranCode, default: "")
+        morningEnabled = c.value(.morningEnabled, default: false)
+        morningHour = c.value(.morningHour, default: 8)
+        morningMinute = c.value(.morningMinute, default: 0)
         lastAutoBackup = (try? c.decodeIfPresent(Date.self, forKey: .lastAutoBackup)) ?? nil
     }
 }

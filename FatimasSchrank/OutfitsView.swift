@@ -81,13 +81,18 @@ struct TodaySection: View {
     @State private var taken = false
     @State private var opened: Garment?
     @State private var occasion: Occasion?
+    @State private var showThree = false
+    @State private var threeSeed = 1
+    @State private var shareImage: ShareImage?
+
+    @Environment(AppState.self) private var app
 
     private var todayWeather: DayWeather? { weather.days[Date().dayKey] }
 
     private var look: Stylist.Look? {
         let day = Calendar.german.ordinality(of: .day, in: .era, for: Date()) ?? 0
         return Stylist.look(from: store.wearableGarments, weather: todayWeather, seed: day &* 31 &+ shuffle,
-                            avoid: store.recentlyWorn(days: 3), occasion: occasion)
+                            avoid: store.recentlyWorn(days: 3), occasion: occasion, ratings: store.ratings())
     }
 
     private var occasionPicker: some View {
@@ -154,6 +159,26 @@ struct TodaySection: View {
         .sheet(item: $opened) { g in
             GarmentSheet(id: g.id)
         }
+        .sheet(isPresented: $showThree) {
+            ThreeLooksSheet(seedBase: threeSeed)
+        }
+        .sheet(item: $shareImage) { item in
+            ShareSheet(items: [item.image])
+        }
+        // Handy schütteln: drei Looks zur Auswahl, wenn der Outfits-Tab offen ist.
+        .onChange(of: app.shakePulse) { _, _ in
+            guard app.tab == 1, !store.wearableGarments.isEmpty else { return }
+            threeSeed = Int.random(in: 1...999_999)
+            showThree = true
+        }
+    }
+
+    private func send(_ look: Stylist.Look) {
+        Task {
+            if let image = await OutfitShare.image(name: "Heute", garments: look.garments, store: store) {
+                shareImage = ShareImage(image: image)
+            }
+        }
     }
 
     private func card(_ look: Stylist.Look) -> some View {
@@ -211,6 +236,21 @@ struct TodaySection: View {
                 .disabled(taken)
             }
             .font(.subheadline)
+            HStack(spacing: 18) {
+                Button {
+                    threeSeed = Int.random(in: 1...999_999)
+                    showThree = true
+                } label: {
+                    Label("Drei Vorschläge", systemImage: "square.stack.3d.up")
+                }
+                Button {
+                    send(look)
+                } label: {
+                    Label("An Kamran schicken", systemImage: "paperplane")
+                }
+            }
+            .font(.footnote)
+            .foregroundStyle(Palette.highlight)
         }
         .padding(18)
         .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Palette.lacquer))
@@ -241,6 +281,98 @@ struct TodaySection: View {
     }
 }
 
+/// Drei verschiedene Looks zur Auswahl, zum Beispiel nach dem Schütteln.
+struct ThreeLooksSheet: View {
+    @Environment(Store.self) private var store
+    @Environment(WeatherService.self) private var weather
+    @Environment(\.dismiss) private var dismiss
+    let seedBase: Int
+    @State private var shareImage: ShareImage?
+
+    private var looks: [Stylist.Look] {
+        let ratings = store.ratings()
+        var avoid = store.recentlyWorn(days: 3)
+        var result: [Stylist.Look] = []
+        for i in 0..<3 {
+            guard let look = Stylist.look(from: store.wearableGarments, weather: weather.days[Date().dayKey],
+                                          seed: seedBase &+ i &* 977, avoid: avoid, ratings: ratings) else { continue }
+            result.append(look)
+            avoid.formUnion(look.garments.map(\.id))
+        }
+        return result
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 18) {
+                    ForEach(Array(looks.enumerated()), id: \.offset) { index, look in
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Vorschlag \(index + 1)")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(Palette.bronze)
+                            HStack(alignment: .top, spacing: 14) {
+                                OutfitCollage(garments: look.garments)
+                                    .frame(width: 110, height: 110)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    ForEach(look.garments) { g in
+                                        Text(g.name)
+                                            .font(.serif(.subheadline))
+                                            .lineLimit(1)
+                                    }
+                                }
+                            }
+                            HStack(spacing: 10) {
+                                Button {
+                                    store.planGarments(look.garments.map(\.id), on: Date())
+                                    Haptic.success()
+                                    dismiss()
+                                } label: {
+                                    Label("Heute tragen", systemImage: "sun.max")
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .tint(Palette.accent)
+                                Button {
+                                    Task {
+                                        if let image = await OutfitShare.image(name: "Vorschlag \(index + 1)", garments: look.garments, store: store) {
+                                            shareImage = ShareImage(image: image)
+                                        }
+                                    }
+                                } label: {
+                                    Label("Schicken", systemImage: "paperplane")
+                                }
+                                .buttonStyle(.bordered)
+                            }
+                            .font(.subheadline)
+                        }
+                        .padding(16)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Palette.card))
+                    }
+                    if looks.isEmpty {
+                        Text("Leg zuerst ein paar Stücke in deinen Schrank.")
+                            .foregroundStyle(.secondary)
+                            .padding(.top, 40)
+                    }
+                }
+                .padding(20)
+            }
+            .background(Palette.sheet.ignoresSafeArea())
+            .navigationTitle("Drei Looks")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Fertig") { dismiss() }
+                }
+            }
+            .sheet(item: $shareImage) { item in
+                ShareSheet(items: [item.image])
+            }
+        }
+        .presentationDetents([.large])
+    }
+}
+
 struct OutfitDetail: View {
     @Environment(Store.self) private var store
     @Environment(\.dismiss) private var dismiss
@@ -250,6 +382,7 @@ struct OutfitDetail: View {
     @State private var editing = false
     @State private var confirmDelete = false
     @State private var planned = false
+    @State private var shareImage: ShareImage?
 
     var body: some View {
         NavigationStack {
@@ -269,6 +402,16 @@ struct OutfitDetail: View {
                                     Label(planned ? "Eingeplant" : "Für einen Tag einplanen", systemImage: planned ? "checkmark" : "calendar.badge.plus")
                                 }
                                 .buttonStyle(PrimaryCapsuleStyle())
+                                Button {
+                                    Task {
+                                        if let image = await OutfitShare.image(name: outfit.name, garments: store.garments(ids: outfit.garmentIDs), store: store) {
+                                            shareImage = ShareImage(image: image)
+                                        }
+                                    }
+                                } label: {
+                                    Label("An Kamran schicken", systemImage: "paperplane")
+                                }
+                                .frame(minHeight: 44)
                                 Button("Bearbeiten") { editing = true }
                                     .frame(minHeight: 44)
                             }
@@ -321,6 +464,9 @@ struct OutfitDetail: View {
             }
             .sheet(isPresented: $editing) {
                 if let outfit = store.outfit(id) { OutfitBuilder(existing: outfit) }
+            }
+            .sheet(item: $shareImage) { item in
+                ShareSheet(items: [item.image])
             }
             .confirmationDialog("Outfit löschen?", isPresented: $confirmDelete, titleVisibility: .visible) {
                 Button("Löschen", role: .destructive) {

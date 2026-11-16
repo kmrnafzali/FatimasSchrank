@@ -6,6 +6,7 @@ struct MoreView: View {
     @Environment(Store.self) private var store
     @Environment(AppState.self) private var app
     @Environment(LocationService.self) private var location
+    @Environment(WeatherService.self) private var weather
 
     @State private var backup: BackupFile?
     @State private var working = false
@@ -48,6 +49,30 @@ struct MoreView: View {
                     Text("Wetter")
                 } footer: {
                     Text("Ohne Standortfreigabe zeigt der Kalender das Wetter für Wien.")
+                }
+
+                Section {
+                    Toggle("Am Morgen erinnern", isOn: $store.db.settings.morningEnabled)
+                    if store.db.settings.morningEnabled {
+                        DatePicker("Uhrzeit", selection: Binding(
+                            get: {
+                                Calendar.german.date(
+                                    bySettingHour: store.db.settings.morningHour,
+                                    minute: store.db.settings.morningMinute,
+                                    second: 0, of: Date()
+                                ) ?? Date()
+                            },
+                            set: { time in
+                                let parts = Calendar.german.dateComponents([.hour, .minute], from: time)
+                                store.db.settings.morningHour = parts.hour ?? 8
+                                store.db.settings.morningMinute = parts.minute ?? 0
+                            }
+                        ), displayedComponents: .hourAndMinute)
+                    }
+                } header: {
+                    Text("Erinnerung")
+                } footer: {
+                    Text("Jeden Morgen eine Mitteilung mit Look und Wetter. Sie wird bei jedem Öffnen der App für die nächsten sieben Tage neu geplant.")
                 }
 
                 Section("Aussehen") {
@@ -126,7 +151,7 @@ struct MoreView: View {
                     NavigationLink {
                         SortOutView()
                     } label: {
-                        Label("Aussortieren und Schneiderei", systemImage: "scissors")
+                        Label("Wäsche, Verliehen, Schneiderei", systemImage: "scissors")
                     }
                     NavigationLink {
                         ShopCheckView()
@@ -176,6 +201,15 @@ struct MoreView: View {
             .background(Palette.sheet.ignoresSafeArea())
             .navigationTitle("Mehr")
             .onChange(of: store.db.settings) { _, _ in store.save() }
+            .onChange(of: store.db.settings.morningEnabled) { _, _ in
+                Task { await Reminders.scheduleMorning(store: store, weather: weather.days) }
+            }
+            .onChange(of: store.db.settings.morningHour) { _, _ in
+                Task { await Reminders.scheduleMorning(store: store, weather: weather.days) }
+            }
+            .onChange(of: store.db.settings.morningMinute) { _, _ in
+                Task { await Reminders.scheduleMorning(store: store, weather: weather.days) }
+            }
             .sheet(item: $backup) { file in
                 ShareSheet(items: [file.url])
             }

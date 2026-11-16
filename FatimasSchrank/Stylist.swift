@@ -51,11 +51,13 @@ enum Stylist {
     /// Ein ganzer Look: Kleid oder Oberteil mit Hose, dazu Schuhe, Tasche und bei Kälte oder Regen ein Mantel.
     /// `avoid`: zuletzt getragene Stücke, die möglichst nicht wieder vorkommen.
     /// `occasion`: Kleid, Oberteil und Hose müssen für diesen Anlass markiert sein.
+    /// `ratings`: durchschnittliche Herzen je Stück, gut bewertete kommen häufiger vor.
     static func look(from all: [Garment], weather: DayWeather?, seed: Int,
-                     avoid: Set<UUID> = [], occasion: Occasion? = nil) -> Look? {
+                     avoid: Set<UUID> = [], occasion: Occasion? = nil,
+                     ratings: [UUID: Double] = [:]) -> Look? {
         let core: Set<Category> = [.dresses, .tops, .bottoms]
         let items = all.filter { g in
-            if g.isArchived { return false }
+            if g.isArchived || g.isUnavailable { return false }
             guard let occasion else { return true }
             if g.occasions.contains(occasion) { return true }
             return !core.contains(g.category) && g.occasions.isEmpty
@@ -72,18 +74,31 @@ enum Stylist {
         let tops = pool(.tops)
         let bottoms = pool(.bottoms)
 
+        /// Zufällige Wahl, bei der gut bewertete Stücke größere Chancen haben.
+        func choose(_ list: [Garment]) -> Garment? {
+            guard !list.isEmpty else { return nil }
+            let weights = list.map { max(0.2, (ratings[$0.id] ?? 3) - 2) }
+            let total = weights.reduce(0, +)
+            var roll = Double(rng.next() % 10_000) / 10_000 * total
+            for (index, weight) in weights.enumerated() {
+                roll -= weight
+                if roll <= 0 { return list[index] }
+            }
+            return list.last
+        }
+
         var result: [Garment] = []
         let useDress = !dresses.isEmpty && (tops.isEmpty || bottoms.isEmpty || rng.next() % 2 == 0)
-        if useDress, let dress = dresses.randomElement(using: &rng) {
+        if useDress, let dress = choose(dresses) {
             result = [dress]
-        } else if let top = tops.randomElement(using: &rng) {
+        } else if let top = choose(tops) {
             let fitting = bottoms.filter { matches($0.colors, top.colors) }
-            if let bottom = (fitting.isEmpty ? bottoms : fitting).randomElement(using: &rng) {
+            if let bottom = choose(fitting.isEmpty ? bottoms : fitting) {
                 result = [top, bottom]
             } else {
                 result = [top]
             }
-        } else if let bottom = bottoms.randomElement(using: &rng) {
+        } else if let bottom = choose(bottoms) {
             result = [bottom]
         }
         guard !result.isEmpty else { return nil }
@@ -92,7 +107,7 @@ enum Stylist {
         func pick(_ c: Category) -> Garment? {
             let candidates = pool(c)
             let fitting = candidates.filter { matches($0.colors, baseColors) }
-            return (fitting.isEmpty ? candidates : fitting).randomElement(using: &rng)
+            return choose(fitting.isEmpty ? candidates : fitting)
         }
         if cold, let coat = pick(.outerwear) { result.append(coat) }
         if let shoes = pick(.shoes) { result.append(shoes) }

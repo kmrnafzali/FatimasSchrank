@@ -83,6 +83,8 @@ extension UIWindow {
 struct RootView: View {
     @Environment(Store.self) private var store
     @Environment(AppState.self) private var app
+    @Environment(LocationService.self) private var location
+    @Environment(WeatherService.self) private var weather
     @State private var doorsVisible = false
     @State private var started = false
 
@@ -137,6 +139,11 @@ struct RootView: View {
             started = true
             if !app.isDemo {
                 await store.autoBackupIfDue()
+                // Wetter laden und die Morgen-Mitteilungen für die nächsten Tage neu planen.
+                if store.db.settings.morningEnabled {
+                    await weather.refresh(for: location.resolve(store.db.settings.placeMode))
+                    await Reminders.scheduleMorning(store: store, weather: weather.days)
+                }
             }
         }
     }

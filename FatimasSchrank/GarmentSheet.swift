@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 /// Ein Stück, herausgenommen aus dem Schrank, mit Papieretikett.
 struct GarmentSheet: View {
@@ -46,6 +47,14 @@ struct GarmentSheet: View {
                                 editing = true
                             } label: {
                                 Label("Bearbeiten", systemImage: "pencil")
+                            }
+                            Button {
+                                var copy = g
+                                copy.inLaundry.toggle()
+                                store.update(copy)
+                                Haptic.light()
+                            } label: {
+                                Label(g.inLaundry ? "Zurück im Schrank" : "In die Wäsche", systemImage: "drop")
                             }
                             Button {
                                 var copy = g
@@ -223,6 +232,27 @@ struct GarmentSheet: View {
             Text(worn == 0 ? "Noch nicht getragen" : (worn == 1 ? "Einmal getragen" : "\(worn)-mal getragen"))
                 .font(.footnote.weight(.medium))
                 .foregroundStyle(Palette.bronze)
+            if g.inLaundry {
+                Label("In der Wäsche", systemImage: "drop.fill")
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(Palette.bronze)
+            }
+            if !g.lentTo.isEmpty {
+                let since = g.lentSince.map { " seit \($0.german(.dateTime.day().month(.abbreviated)))" } ?? ""
+                Label("Verliehen an \(g.lentTo)\(since)", systemImage: "person.fill")
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(Palette.bronze)
+            }
+            if let average = store.ratings()[g.id] {
+                Label(String(format: "Ø %.1f von 5 Herzen", average).replacingOccurrences(of: ".", with: ","), systemImage: "heart")
+                    .font(.footnote)
+                    .foregroundStyle(Palette.inkSecondary)
+            }
+            if !g.material.isEmpty {
+                Text(g.material)
+                    .font(.footnote)
+                    .foregroundStyle(Palette.inkSecondary)
+            }
             if g.kamranFavorite {
                 Label("Kamrans Liebling", systemImage: "heart.circle.fill")
                     .font(.footnote.weight(.medium))
@@ -254,6 +284,37 @@ struct GarmentEditor: View {
     @Environment(\.dismiss) private var dismiss
     @State private var draft: Garment
     @State private var priceText: String
+    @State private var showLabelCamera = false
+    @State private var showLabelPicker = false
+    @State private var labelItem: PhotosPickerItem?
+    @State private var labelCameraImage: UIImage?
+    @State private var scanning = false
+    @State private var scanMessage: String?
+
+    /// Liest das Etikett und trägt ein, was gefunden wurde. Vorhandenes bleibt stehen, wenn das Etikett nichts Neues liefert.
+    private func scanLabel(_ image: UIImage) async {
+        scanning = true
+        scanMessage = nil
+        let info = await LabelScanner.scan(image)
+        if let file = await store.saveLabelImage(image) {
+            if !draft.labelFile.isEmpty {
+                try? FileManager.default.removeItem(at: store.imageURL(draft.labelFile))
+                ImageCache.shared.remove(draft.labelFile)
+            }
+            draft.labelFile = file
+        }
+        if let info {
+            if !info.brand.isEmpty { draft.brand = info.brand }
+            if !info.size.isEmpty { draft.size = info.size }
+            if !info.material.isEmpty { draft.material = info.material }
+            if !info.articleNumber.isEmpty { draft.articleNumber = info.articleNumber }
+            scanMessage = "Gelesen: \(info.summary)"
+            Haptic.success()
+        } else {
+            scanMessage = "Auf dem Foto konnte ich nichts lesen. Halte das Etikett gerade und gut beleuchtet ins Bild."
+        }
+        scanning = false
+    }
 
     init(original: Garment) {
         _draft = State(initialValue: original)
@@ -344,6 +405,46 @@ struct GarmentEditor: View {
                     ColorPickerRow(selection: $draft.colors)
                 }
                 Section {
+                    Button {
+                        showLabelCamera = true
+                    } label: {
+                        Label("Etikett fotografieren", systemImage: "tag")
+                    }
+                    Button {
+                        showLabelPicker = true
+                    } label: {
+                        Label("Etikett aus Fotos", systemImage: "photo")
+                    }
+                    if scanning {
+                        HStack(spacing: 10) {
+                            ProgressView()
+                            Text("Ich lese das Etikett")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    if let scanMessage {
+                        Text(scanMessage)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    TextField("Material", text: $draft.material)
+                    TextField("Artikelnummer", text: $draft.articleNumber)
+                    if let url = LabelScanner.searchURL(brand: draft.brand, article: draft.articleNumber) {
+                        Link(destination: url) {
+                            Label("Im Internet suchen", systemImage: "magnifyingglass")
+                        }
+                    }
+                    if !draft.labelFile.isEmpty {
+                        StoredImage(file: draft.labelFile, contentMode: .fit)
+                            .frame(maxHeight: 140)
+                            .frame(maxWidth: .infinity)
+                    }
+                } header: {
+                    Text("Etikett")
+                } footer: {
+                    Text("Die App liest Marke, Größe, Material und Artikelnummer vom Etikett. Mit der Marke und der Nummer findest du das Stück oft im Shop und kannst von dort ein sauberes Produktfoto speichern.")
+                }
+                Section {
                     TextField("Getragen beim ersten Date …", text: $draft.memory, axis: .vertical)
                         .lineLimit(1...4)
                 } header: {
@@ -383,6 +484,20 @@ struct GarmentEditor: View {
                     }
                 }
                 Section {
+                    Toggle("In der Wäsche", isOn: $draft.inLaundry)
+                    TextField("Verliehen an", text: $draft.lentTo)
+                    if !draft.lentTo.trimmingCharacters(in: .whitespaces).isEmpty {
+                        DatePicker("Seit", selection: Binding(
+                            get: { draft.lentSince ?? Date() },
+                            set: { draft.lentSince = $0 }
+                        ), displayedComponents: .date)
+                    }
+                } header: {
+                    Text("Gerade nicht da")
+                } footer: {
+                    Text("Solche Stücke kommen in Vorschlägen nicht vor und erscheinen im Schrank blass.")
+                }
+                Section {
                     Toggle("Lieblingsstück", isOn: $draft.isFavorite)
                     Toggle("Archiviert", isOn: $draft.isArchived)
                     Picker("Aussortieren", selection: $draft.disposal) {
@@ -415,6 +530,25 @@ struct GarmentEditor: View {
             .background(Palette.sheet.ignoresSafeArea())
             .navigationTitle("Bearbeiten")
             .navigationBarTitleDisplayMode(.inline)
+            .photosPicker(isPresented: $showLabelPicker, selection: $labelItem, matching: .images)
+            .onChange(of: labelItem) { _, item in
+                guard let item else { return }
+                labelItem = nil
+                Task {
+                    guard let data = try? await item.loadTransferable(type: Data.self),
+                          let image = ImagePipeline.downsample(data: data, maxPixel: 2000) else { return }
+                    await scanLabel(image)
+                }
+            }
+            .fullScreenCover(isPresented: $showLabelCamera, onDismiss: {
+                if let image = labelCameraImage {
+                    labelCameraImage = nil
+                    Task { await scanLabel(image) }
+                }
+            }) {
+                CameraPicker(onImage: { labelCameraImage = $0 }, onDone: { showLabelCamera = false })
+                    .ignoresSafeArea()
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Abbrechen") { dismiss() }
@@ -424,6 +558,12 @@ struct GarmentEditor: View {
                         var g = draft
                         if g.name.trimmingCharacters(in: .whitespaces).isEmpty { g.name = g.category.singular }
                         g.price = Self.parsePrice(priceText)
+                        g.lentTo = g.lentTo.trimmingCharacters(in: .whitespaces)
+                        if g.lentTo.isEmpty {
+                            g.lentSince = nil
+                        } else if g.lentSince == nil {
+                            g.lentSince = Date()
+                        }
                         store.update(g)
                         Reminders.updateAlteration(for: g)
                         Haptic.light()

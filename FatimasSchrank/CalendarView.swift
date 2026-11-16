@@ -144,7 +144,7 @@ struct CalendarView: View {
         for day in days where day.dayKey >= todayKey && store.entries(on: day).isEmpty {
             let seed = Int.random(in: 0...999_999)
             guard let look = Stylist.look(from: store.wearableGarments, weather: weather.days[day.dayKey],
-                                          seed: seed, avoid: avoid) else { continue }
+                                          seed: seed, avoid: avoid, ratings: store.ratings()) else { continue }
             store.planGarments(look.garments.map(\.id), on: day)
             avoid.formUnion(look.garments.map(\.id))
             planned += 1
@@ -166,7 +166,7 @@ struct CalendarView: View {
         var avoid = store.recentlyWorn(days: 3)
         avoid.formUnion(entry.garmentIDs)
         guard let look = Stylist.look(from: store.wearableGarments, weather: weather.days[entry.day],
-                                      seed: Int.random(in: 0...999_999), avoid: avoid) else { return }
+                                      seed: Int.random(in: 0...999_999), avoid: avoid, ratings: store.ratings()) else { return }
         store.replacePlan(entry.id, garmentIDs: look.garments.map(\.id))
         Haptic.light()
     }
@@ -243,6 +243,24 @@ struct CalendarView: View {
                         Label("Regen gemeldet, nimm einen Mantel mit", systemImage: "umbrella")
                             .font(.caption)
                             .foregroundStyle(.orange)
+                    }
+                    // Nach dem Tragen: Herzen vergeben. Ein zweiter Tipp auf dasselbe Herz nimmt die Bewertung zurück.
+                    if day.dayKey <= Date().dayKey {
+                        HStack(spacing: 6) {
+                            ForEach(1...5, id: \.self) { n in
+                                Button {
+                                    store.setRating(entry.id, rating: entry.rating == n ? nil : n)
+                                    Haptic.light()
+                                } label: {
+                                    Image(systemName: n <= (entry.rating ?? 0) ? "heart.fill" : "heart")
+                                        .font(.footnote)
+                                        .foregroundStyle(Palette.rosePetal)
+                                        .frame(minWidth: 24, minHeight: 28)
+                                }
+                                .buttonStyle(.borderless)
+                                .accessibilityLabel("\(n) von 5 Herzen")
+                            }
+                        }
                     }
                 }
             }

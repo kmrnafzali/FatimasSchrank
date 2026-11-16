@@ -17,6 +17,7 @@ struct ClosetView: View {
     @State private var newAreaName = ""
     @State private var showJewelry = false
     @State private var showPhotos = false
+    @State private var showQuick = false
     @State private var tilt: Double = 0
     @State private var lastOffset: CGFloat?
     @State private var settleTask: Task<Void, Never>?
@@ -46,7 +47,7 @@ struct ClosetView: View {
     }
     private var shelfItems: [Garment] {
         // An besonderen Tagen steht rechts eine Karte, dann ist Platz für zwei Stücke.
-        Array((store.garments(in: .bags) + store.garments(in: .accessories)).prefix(special == nil ? 4 : 2))
+        Array((store.garments(in: .bags) + store.garments(in: .accessories)).prefix(special == nil ? 3 : 2))
     }
     private var special: SpecialDay? { SpecialDay.today() }
     private var hasUnreadLetter: Bool {
@@ -89,6 +90,11 @@ struct ClosetView: View {
                     .accessibilityLabel("Alle Stücke durchsuchen")
                     Menu {
                         Button {
+                            showQuick = true
+                        } label: {
+                            Label("Schnellaufnahme", systemImage: "camera.viewfinder")
+                        }
+                        Button {
                             showCamera = true
                         } label: {
                             Label("Foto aufnehmen", systemImage: "camera")
@@ -129,6 +135,9 @@ struct ClosetView: View {
         }
         .sheet(isPresented: $showPhotos) {
             CouplePhotosView()
+        }
+        .fullScreenCover(isPresented: $showQuick) {
+            QuickCaptureView(category: category)
         }
         .alert("Neuer Bereich", isPresented: $showNewArea) {
             TextField("Zum Beispiel: Sport", text: $newAreaName)
@@ -234,9 +243,23 @@ struct ClosetView: View {
 
     // MARK: Nische mit Licht, Fach und Stange
 
+    /// Licht je nach Tageszeit: morgens kühl und klar, abends warm und gedimmt.
+    private var daylight: (tint: Color, strength: Double, brightness: Double) {
+        switch Calendar.german.component(.hour, from: Date()) {
+        case 5..<10: return (Color(hex: 0xBFD6FF), 0.08, 1)
+        case 17..<21: return (Color(hex: 0xFFB36B), 0.12, 0.92)
+        case 21..<23: return (Color(hex: 0xFF9A55), 0.14, 0.82)
+        default: return (.clear, 0, 1)
+        }
+    }
+
     private var niche: some View {
         ZStack(alignment: .top) {
-            BackWall(light: app.light, rose: special != nil)
+            BackWall(light: app.light * daylight.brightness, rose: special != nil)
+            Rectangle()
+                .fill(daylight.tint)
+                .opacity(daylight.strength)
+                .allowsHitTesting(false)
             VStack(spacing: 0) {
                 shelf
                 GlassShelf()
@@ -280,6 +303,9 @@ struct ClosetView: View {
                         .accessibilityAddTraits(.isButton)
                 }
                 Spacer(minLength: 0)
+                if special == nil {
+                    SeasonDecoration()
+                }
             }
             if let special {
                 specialCard(special)
@@ -339,6 +365,18 @@ struct ClosetView: View {
             }
         }
         .frame(width: 94)
+        .opacity(g.isUnavailable ? 0.5 : 1)
+        .overlay(alignment: .center) {
+            if g.isUnavailable {
+                Image(systemName: g.inLaundry ? "drop.fill" : "person.fill")
+                    .font(.footnote)
+                    .foregroundStyle(Palette.creamFixed)
+                    .padding(8)
+                    .background(Circle().fill(.black.opacity(0.55)))
+                    .offset(y: 30)
+                    .accessibilityHidden(true)
+            }
+        }
         .rotationEffect(.degrees(tilt * (1 - Double(index % 3) * 0.12)), anchor: .top)
         .animation(.spring(response: 0.7, dampingFraction: 0.28).delay(Double(index % 6) * 0.03), value: tilt)
         .contentShape(Rectangle())
@@ -399,6 +437,7 @@ struct ClosetView: View {
                         ForEach(items) { g in
                             GarmentImage(garment: g)
                                 .frame(width: 120, height: 150, alignment: .bottom)
+                                .opacity(g.isUnavailable ? 0.5 : 1)
                                 .shadow(color: .black.opacity(0.35), radius: 8, x: 6, y: 8)
                                 .onTapGesture { open(g) }
                                 .accessibilityAddTraits(.isButton)
@@ -429,6 +468,7 @@ struct ClosetView: View {
                                 GarmentImage(garment: g)
                                     .frame(maxWidth: .infinity)
                                     .frame(height: 64, alignment: .bottom)
+                                    .opacity(g.isUnavailable ? 0.5 : 1)
                                     .shadow(color: .black.opacity(0.35), radius: 5, x: 4, y: 5)
                                     .contentShape(Rectangle())
                                     .onTapGesture { open(g) }
@@ -646,6 +686,43 @@ struct ClosetView: View {
             // Selten ein leiser Luftzug, als ginge jemand vorbei.
             if tick % 4 == 0 { jiggle(strength: 1.6) }
         }
+    }
+}
+
+/// Kleine Dekoration auf dem Glasboden, je nach Jahreszeit.
+struct SeasonDecoration: View {
+    var body: some View {
+        let month = Calendar.german.component(.month, from: Date())
+        HStack(spacing: 8) {
+            switch Season.current() {
+            case .winter:
+                Image(systemName: "snowflake")
+                    .foregroundStyle(Color(hex: 0xDCEBFF))
+                if month == 12 {
+                    Image(systemName: "sparkle")
+                        .foregroundStyle(Palette.highlight)
+                }
+            case .spring:
+                Image(systemName: "camera.macro")
+                    .foregroundStyle(Color(hex: 0xF3B6C4))
+                Image(systemName: "leaf.fill")
+                    .foregroundStyle(Color(hex: 0x8DBB7A))
+            case .summer:
+                Image(systemName: "sun.max.fill")
+                    .foregroundStyle(Color(hex: 0xF6D36A))
+                Image(systemName: "sparkle")
+                    .foregroundStyle(Color(hex: 0xFFF1C8))
+            case .autumn:
+                Image(systemName: "leaf.fill")
+                    .foregroundStyle(Color(hex: 0xE08A3C))
+                Image(systemName: "leaf.fill")
+                    .foregroundStyle(Color(hex: 0xB5532A))
+            }
+        }
+        .font(.title3)
+        .shadow(color: .black.opacity(0.35), radius: 3, x: 2, y: 3)
+        .padding(.bottom, 4)
+        .accessibilityHidden(true)
     }
 }
 

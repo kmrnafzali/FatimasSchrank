@@ -175,14 +175,57 @@ struct SortOutView: View {
         let sell = store.activeGarments.filter { $0.disposal == .sell }
         let donate = store.activeGarments.filter { $0.disposal == .donate }
         let tailor = store.activeGarments.filter { !$0.alteration.isEmpty }
+        let laundry = store.activeGarments.filter { $0.inLaundry }
+        let lent = store.activeGarments.filter { !$0.lentTo.isEmpty }
         List {
-            if sell.isEmpty && donate.isEmpty && tailor.isEmpty {
+            if sell.isEmpty && donate.isEmpty && tailor.isEmpty && laundry.isEmpty && lent.isEmpty {
                 ContentUnavailableView(
-                    "Alles bleibt",
+                    "Alles ist da",
                     systemImage: "archivebox",
-                    description: Text("Im Bearbeiten-Fenster eines Stücks kannst du es zum Verkaufen oder Spenden vormerken oder eine Notiz für den Schneider anlegen.")
+                    description: Text("Im Bearbeiten-Fenster eines Stücks kannst du es in die Wäsche legen, verleihen, zum Verkaufen oder Spenden vormerken oder eine Notiz für den Schneider anlegen.")
                 )
                 .listRowBackground(Color.clear)
+            }
+            if !laundry.isEmpty {
+                Section {
+                    ForEach(laundry) { g in
+                        row(g, detail: g.brand)
+                            .swipeActions {
+                                Button("Zurück") {
+                                    var copy = g
+                                    copy.inLaundry = false
+                                    store.update(copy)
+                                    Haptic.success()
+                                }
+                                .tint(Palette.accent)
+                            }
+                    }
+                } header: {
+                    Text("In der Wäsche")
+                } footer: {
+                    Text("Nach links wischen, wenn es wieder im Schrank hängt.")
+                }
+            }
+            if !lent.isEmpty {
+                Section {
+                    ForEach(lent) { g in
+                        row(g, detail: lentDetail(g))
+                            .swipeActions {
+                                Button("Zurück") {
+                                    var copy = g
+                                    copy.lentTo = ""
+                                    copy.lentSince = nil
+                                    store.update(copy)
+                                    Haptic.success()
+                                }
+                                .tint(Palette.accent)
+                            }
+                    }
+                } header: {
+                    Text("Verliehen")
+                } footer: {
+                    Text("Nach links wischen, wenn du es zurückbekommen hast.")
+                }
             }
             disposalSection("Verkaufen", sell)
             disposalSection("Spenden", donate)
@@ -196,10 +239,15 @@ struct SortOutView: View {
         }
         .scrollContentBackground(.hidden)
         .background(Palette.sheet.ignoresSafeArea())
-        .navigationTitle("Aussortieren")
+        .navigationTitle("Unterwegs und aussortiert")
         .sheet(item: $opened) { g in
             GarmentSheet(id: g.id)
         }
+    }
+
+    private func lentDetail(_ g: Garment) -> String {
+        guard let since = g.lentSince else { return "an \(g.lentTo)" }
+        return "an \(g.lentTo) seit \(since.german(.dateTime.day().month(.abbreviated)))"
     }
 
     private func alterationDetail(_ g: Garment) -> String {
