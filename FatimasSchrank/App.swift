@@ -83,7 +83,6 @@ extension UIWindow {
 struct RootView: View {
     @Environment(Store.self) private var store
     @Environment(AppState.self) private var app
-    @Environment(\.scenePhase) private var scenePhase
     @State private var doorsVisible = false
     @State private var started = false
 
@@ -120,20 +119,12 @@ struct RootView: View {
             WelcomeView()
                 .environment(store)
         }
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .background && store.db.settings.lockEnabled {
-                LockWindow.shared.show(store: store)
-            }
-        }
         .dynamicTypeSize(...DynamicTypeSize.accessibility3)
         .onReceive(NotificationCenter.default.publisher(for: .deviceShaken)) { _ in
             app.shakePulse += 1
         }
         .task {
             guard !started else { return }
-            if store.db.settings.lockEnabled && !app.isDemo {
-                LockWindow.shared.show(store: store)
-            }
             if app.isDemo {
                 await Demo.prepare(store: store, app: app)
             }

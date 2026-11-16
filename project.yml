@@ -43,7 +43,6 @@ targets:
         NSLocationWhenInUseUsageDescription: Damit dein Kalender das Wetter dort zeigt, wo du gerade bist.
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true
-        NSFaceIDUsageDescription: Damit nur du deinen Schrank öffnest.
         UIRequiresFullScreen: true
         ITSAppUsesNonExemptEncryption: false
         UISupportedInterfaceOrientations:

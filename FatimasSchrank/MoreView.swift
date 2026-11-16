@@ -91,24 +91,6 @@ struct MoreView: View {
                 }
 
                 Section {
-                    Toggle("Mit Face ID schützen", isOn: Binding(
-                        get: { store.db.settings.lockEnabled },
-                        set: { on in
-                            Task {
-                                if await Unlocker.authenticate() {
-                                    store.db.settings.lockEnabled = on
-                                    store.save()
-                                }
-                            }
-                        }
-                    ))
-                } header: {
-                    Text("Schutz")
-                } footer: {
-                    Text("Beim Öffnen fragt die App nach Face ID oder dem Code des iPhones.")
-                }
-
-                Section {
                     SiriTipView(intent: TodayOutfitIntent())
                         .siriTipViewStyle(.automatic)
                     ShortcutsLink()
