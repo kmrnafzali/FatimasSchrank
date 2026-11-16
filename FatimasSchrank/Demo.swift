@@ -178,6 +178,9 @@ enum Demo {
     static func prepare(store: Store, app: AppState) async {
         store.db.settings.welcomeSeen = app.argument("-open") != "welcome"
         store.db.settings.placeMode = .wien
+        // Farbe für das Foto wählen (-theme ivory oder midnight), sonst Burgunder.
+        let theme = app.argument("-theme").flatMap { CabinetTheme(rawValue: $0) } ?? .burgundy
+        store.setTheme(theme)
         guard store.db.garments.isEmpty else {
             store.save()
             return
@@ -212,6 +215,99 @@ enum Demo {
             store.plan(outfit: second, on: tomorrow)
         }
         store.setDayNote(today, "Abendessen in der Innenstadt")
+        await addExtras(store: store, today: today)
         store.save()
+    }
+
+    /// Beispiele für Wünsche, Größen, Reisen, Tagebuch, Fotos, Bewertung, Wäsche und Preise.
+    private static func addExtras(store: Store, today: Date) async {
+        let cal = Calendar.german
+        func garment(_ name: String) -> Garment? { store.db.garments.first { $0.name == name } }
+
+        // Preise, Anlässe, Wäsche und Verliehen
+        let details: [(String, Double, [Occasion])] = [
+            ("Seidenkleid", 189, [.date, .party]), ("Abendkleid", 240, [.party, .wedding]),
+            ("Cocktailkleid", 129, [.party]), ("Kamelmantel", 320, [.office]),
+            ("Bundfaltenhose", 89, [.office]), ("Pumps", 145, [.date, .office]),
+        ]
+        for (name, price, occasions) in details {
+            if var g = garment(name) {
+                g.price = price
+                g.occasions = occasions
+                store.update(g)
+            }
+        }
+        if var g = garment("Kaschmirpullover") {
+            g.inLaundry = true
+            store.update(g)
+        }
+        if var g = garment("Blazer") {
+            g.lentTo = "Lena"
+            g.lentSince = cal.date(byAdding: .day, value: -5, to: today)
+            store.update(g)
+        }
+        if var g = garment("Schluppenbluse") {
+            g.alteration = "Ärmel kürzen"
+            store.update(g)
+        }
+
+        // Herzen für heute
+        if let entry = store.entries(on: today).first {
+            store.setRating(entry.id, rating: 4)
+        }
+
+        // Wünsche und Größen
+        var scarf = Wish(name: "Seidenschal")
+        scarf.brand = "Atelier"
+        scarf.color = "Bordeaux"
+        store.saveWish(scarf)
+        var boots = Wish(name: "Stiefeletten")
+        boots.size = "38"
+        boots.color = "Schwarz"
+        store.saveWish(boots)
+        var ring = Wish(name: "Goldring")
+        ring.size = "52"
+        ring.fulfilled = true
+        store.saveWish(ring)
+        for (key, value) in [("Oberteile", "S"), ("Kleider", "36"), ("Hosen und Jeans", "27/30"), ("Schuhe", "38"), ("Ringe", "52")] {
+            store.setSize(key, value)
+        }
+
+        // Eine Reise mit Packliste
+        if let start = cal.date(byAdding: .day, value: 3, to: today),
+           let end = cal.date(byAdding: .day, value: 6, to: today) {
+            var trip = Stylist.fill(Trip(name: "Paris", start: start, end: end),
+                                    garments: store.wearableGarments, weather: [:])
+            trip.packed = Array(trip.garmentIDs.prefix(2))
+            store.saveTrip(trip)
+        }
+
+        // Gutschein im Geheimfach
+        if let later = cal.date(byAdding: .day, value: 10, to: today) {
+            store.saveVoucher(Voucher(title: "Wellnesstag", text: "Ein ganzer Tag nur für dich.", unlock: later))
+        }
+
+        // Gezeichnete Fotos für Tagebuch und die Fotoschublade
+        func picture(_ colors: [UInt32], symbol: String) -> UIImage? {
+            let view = ZStack {
+                LinearGradient(colors: colors.map { Color(hex: $0) }, startPoint: .topLeading, endPoint: .bottomTrailing)
+                Image(systemName: symbol)
+                    .font(.system(size: 160, weight: .light))
+                    .foregroundStyle(.white.opacity(0.85))
+            }
+            .frame(width: 600, height: 800)
+            let renderer = ImageRenderer(content: view)
+            renderer.scale = 1
+            return renderer.uiImage
+        }
+        if let photo = picture([0xE8C9C0, 0x7E1B33], symbol: "figure.stand.dress") {
+            await store.setDayPhoto(today, image: photo)
+        }
+        if let photo = picture([0xF6D9B8, 0xC4826A], symbol: "heart.fill") {
+            await store.addCouplePhoto(photo)
+        }
+        if let photo = picture([0xBFD6FF, 0x2E4A7A], symbol: "sun.max.fill") {
+            await store.addCouplePhoto(photo)
+        }
     }
 }

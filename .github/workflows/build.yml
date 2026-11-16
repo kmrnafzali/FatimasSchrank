@@ -139,6 +139,22 @@ jobs:
           shot 08-widmung -noDoors -open welcome
           shot 09-geheimfach -noDoors -open drawer
           WAIT=15 shot 10-alle-teile -noDoors -open all
+          shot 13-schuhregal -noDoors -open shoes
+          shot 14-schmuck -noDoors -open jewelry
+          shot 15-fotos -noDoors -open photos
+          WAIT=9 shot 16-bearbeiten -noDoors -open edit
+          WAIT=10 shot 17-drei-looks -noDoors -tab 1 -open three
+          shot 18-aussehen -noDoors -tab 3 -open appearance
+          shot 19-wunschliste -noDoors -tab 3 -open wishes
+          shot 20-groessen -noDoors -tab 3 -open sizes
+          shot 21-tagebuch -noDoors -tab 3 -open diary
+          shot 22-reise -noDoors -tab 3 -open trip
+          shot 23-unterwegs -noDoors -tab 3 -open sortout
+          shot 24-budget -noDoors -tab 3 -open budget
+          shot 25-laden -noDoors -tab 3 -open shop
+          shot 26-elfenbein -noDoors -theme ivory
+          shot 27-mitternacht -noDoors -theme midnight
+          shot 28-tueren-mitternacht -screen doors -theme midnight
           xcrun simctl ui "$UDID" appearance dark
           shot 11-kalender-dunkel -noDoors -tab 2
           shot 12-teil-dunkel -noDoors -open garment

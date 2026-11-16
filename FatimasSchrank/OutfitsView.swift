@@ -156,6 +156,13 @@ struct TodaySection: View {
         .task {
             await weather.refresh(for: location.resolve(store.db.settings.placeMode))
         }
+        // Für die automatischen Bildschirmfotos (Startparameter -open three).
+        .task(id: app.tab) {
+            guard app.tab == 1, app.argument("-open") == "three", !showThree else { return }
+            try? await Task.sleep(for: .milliseconds(800))
+            threeSeed = 4711
+            showThree = true
+        }
         .sheet(item: $opened) { g in
             GarmentSheet(id: g.id)
         }

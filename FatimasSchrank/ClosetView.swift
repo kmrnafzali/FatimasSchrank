@@ -648,6 +648,11 @@ struct ClosetView: View {
             case "garment": selected = store.garments(in: .dresses).first ?? store.activeGarments.first
             case "drawer": app.showDrawer = true
             case "all": showAll = true
+            case "jewelry": showJewelry = true
+            case "photos": showPhotos = true
+            case "shoes": category = .shoes
+            case "edit":
+                if let g = store.garments(in: .dresses).first { editAfterAdd = g }
             default: break
             }
         }

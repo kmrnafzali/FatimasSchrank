@@ -17,6 +17,7 @@ struct MoreView: View {
     @State private var askCode = false
     @State private var codeInput = ""
     @State private var showKamran = false
+    @State private var route: MoreRoute?
 
     var body: some View {
         @Bindable var store = store
@@ -200,6 +201,31 @@ struct MoreView: View {
             .scrollContentBackground(.hidden)
             .background(Palette.sheet.ignoresSafeArea())
             .navigationTitle("Mehr")
+            .navigationDestination(item: $route) { r in
+                switch r {
+                case .wishes: WishlistView()
+                case .sizes: SizesView()
+                case .diary: DiaryView()
+                case .trips: TripsView()
+                case .trip:
+                    if let first = store.db.trips.first {
+                        TripDetail(id: first.id)
+                    } else {
+                        TripsView()
+                    }
+                case .sortout: SortOutView()
+                case .budget: BudgetView()
+                case .shop: ShopCheckView()
+                case .appearance: AppearanceView()
+                }
+            }
+            // Für die automatischen Bildschirmfotos (Startparameter -open, zum Beispiel wishes).
+            .task(id: app.tab) {
+                guard app.tab == 3, route == nil,
+                      let raw = app.argument("-open"), let r = MoreRoute(rawValue: raw) else { return }
+                try? await Task.sleep(for: .milliseconds(600))
+                route = r
+            }
             .onChange(of: store.db.settings) { _, _ in store.save() }
             .onChange(of: store.db.settings.morningEnabled) { _, _ in
                 Task { await Reminders.scheduleMorning(store: store, weather: weather.days) }
@@ -280,6 +306,11 @@ struct MoreView: View {
             message = "Diese Datei ist keine gültige Sicherung. Dein Schrank bleibt unverändert."
         }
     }
+}
+
+/// Seiten unter "Mehr", die sich auch direkt öffnen lassen.
+enum MoreRoute: String, Hashable {
+    case wishes, sizes, diary, trips, trip, sortout, budget, shop, appearance
 }
 
 struct BackupFile: Identifiable {
