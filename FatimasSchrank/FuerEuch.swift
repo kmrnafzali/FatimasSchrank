@@ -216,10 +216,12 @@ struct CouplePhotosView: View {
                             Button {
                                 opened = photo
                             } label: {
-                                StoredImage(file: photo.thumb)
-                                    .frame(height: 190)
+                                // Das Bild füllt den Rahmen, ohne über die Spalte hinauszuwachsen.
+                                Color.clear
                                     .frame(maxWidth: .infinity)
-                                    .clipShape(Rectangle())
+                                    .frame(height: 190)
+                                    .overlay { StoredImage(file: photo.thumb) }
+                                    .clipped()
                                     .padding(8)
                                     .padding(.bottom, 18)
                                     .background(Palette.paper)

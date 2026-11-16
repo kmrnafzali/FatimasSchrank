@@ -300,9 +300,14 @@ struct ThreeLooksSheet: View {
         let ratings = store.ratings()
         var avoid = store.recentlyWorn(days: 3)
         var result: [Stylist.Look] = []
-        for i in 0..<3 {
+        var seen: Set<Set<UUID>> = []
+        // Mehrere Versuche, damit kein Vorschlag doppelt erscheint, auch bei kleinem Schrank.
+        for attempt in 0..<12 where result.count < 3 {
             guard let look = Stylist.look(from: store.wearableGarments, weather: weather.days[Date().dayKey],
-                                          seed: seedBase &+ i &* 977, avoid: avoid, ratings: ratings) else { continue }
+                                          seed: seedBase &+ attempt &* 977, avoid: avoid, ratings: ratings) else { continue }
+            let key = Set(look.garments.map(\.id))
+            guard !seen.contains(key) else { continue }
+            seen.insert(key)
             result.append(look)
             avoid.formUnion(look.garments.map(\.id))
         }

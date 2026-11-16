@@ -239,7 +239,7 @@ struct SortOutView: View {
         }
         .scrollContentBackground(.hidden)
         .background(Palette.sheet.ignoresSafeArea())
-        .navigationTitle("Unterwegs und aussortiert")
+        .navigationTitle("Nicht im Schrank")
         .sheet(item: $opened) { g in
             GarmentSheet(id: g.id)
         }
