@@ -297,10 +297,9 @@ struct GarmentEditor: View {
         scanMessage = nil
         let info = await LabelScanner.scan(image)
         if let file = await store.saveLabelImage(image) {
-            if !draft.labelFile.isEmpty {
-                try? FileManager.default.removeItem(at: store.imageURL(draft.labelFile))
-                ImageCache.shared.remove(draft.labelFile)
-            }
+            // Ein zuvor in diesem Fenster gescanntes, noch nicht gesichertes Foto wird ersetzt.
+            // Das ursprüngliche Etikett bleibt, bis "Sichern" getippt wird.
+            if draft.labelFile != originalLabel { removeLabelFile(draft.labelFile) }
             draft.labelFile = file
         }
         if let info {
@@ -316,7 +315,16 @@ struct GarmentEditor: View {
         scanning = false
     }
 
+    private let originalLabel: String
+
+    private func removeLabelFile(_ file: String) {
+        guard !file.isEmpty else { return }
+        try? FileManager.default.removeItem(at: store.imageURL(file))
+        ImageCache.shared.remove(file)
+    }
+
     init(original: Garment) {
+        originalLabel = original.labelFile
         _draft = State(initialValue: original)
         _priceText = State(initialValue: original.price.map {
             String(format: "%.2f", $0).replacingOccurrences(of: ".", with: ",")
@@ -551,11 +559,17 @@ struct GarmentEditor: View {
             }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Abbrechen") { dismiss() }
+                    Button("Abbrechen") {
+                        // Ein neu gescanntes, aber nicht gesichertes Etikettfoto wieder wegräumen.
+                        if draft.labelFile != originalLabel { removeLabelFile(draft.labelFile) }
+                        dismiss()
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Sichern") {
                         var g = draft
+                        // Das alte Etikettfoto erst jetzt löschen, wenn ein neues gesichert wird.
+                        if g.labelFile != originalLabel { removeLabelFile(originalLabel) }
                         if g.name.trimmingCharacters(in: .whitespaces).isEmpty { g.name = g.category.singular }
                         g.price = Self.parsePrice(priceText)
                         g.lentTo = g.lentTo.trimmingCharacters(in: .whitespaces)

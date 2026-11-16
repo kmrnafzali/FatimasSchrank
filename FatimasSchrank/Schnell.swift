@@ -88,9 +88,9 @@ final class CameraViewController: UIViewController, AVCapturePhotoCaptureDelegat
         output.capturePhoto(with: AVCapturePhotoSettings(), delegate: self)
     }
 
-    func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
+    nonisolated func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
         guard error == nil, let data = photo.fileDataRepresentation() else { return }
-        DispatchQueue.main.async {
+        Task { @MainActor in
             self.onPhoto?(data)
         }
     }
