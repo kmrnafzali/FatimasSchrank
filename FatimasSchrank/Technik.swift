@@ -41,7 +41,8 @@ final class LockWindow {
         let host = UIHostingController(rootView: AnyView(root))
         host.view.backgroundColor = .clear
         w.rootViewController = host
-        w.makeKeyAndVisible()
+        // Nur einblenden, nicht zum Hauptfenster machen: sonst verliert die App danach die Tastatur.
+        w.isHidden = false
         window = w
     }
 
@@ -60,6 +61,7 @@ struct LockView: View {
     @Environment(Store.self) private var store
     let onUnlock: () -> Void
     @State private var failed = false
+    @State private var autoTried = false
 
     var body: some View {
         ZStack {
@@ -84,10 +86,27 @@ struct LockView: View {
             }
             .padding(32)
         }
-        .task { await unlock() }
+        // Face ID nur fragen, wenn die App im Vordergrund ist, und von selbst nur einmal.
+        .task {
+            // Beim Start ist die App einen Moment lang noch nicht aktiv: kurz warten.
+            var waited = 0
+            while UIApplication.shared.applicationState != .active && waited < 20 {
+                try? await Task.sleep(for: .milliseconds(100))
+                waited += 1
+            }
+            guard UIApplication.shared.applicationState == .active, !autoTried else { return }
+            autoTried = true
+            await unlock()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            guard !autoTried else { return }
+            autoTried = true
+            Task { await unlock() }
+        }
     }
 
     private func unlock() async {
+        failed = false
         if await Unlocker.authenticate() {
             onUnlock()
         } else {

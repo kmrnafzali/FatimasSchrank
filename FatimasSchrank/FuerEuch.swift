@@ -405,8 +405,11 @@ struct KamranView: View {
                         store.save()
                         dismiss()
                     }
+                    // Ohne gültigen Code könnte jeder den Bereich neu einrichten.
+                    .disabled(store.db.settings.kamranCode.count < 4)
                 }
             }
+            .interactiveDismissDisabled(store.db.settings.kamranCode.count < 4)
             .sheet(item: $editing) { voucher in
                 VoucherEditor(original: voucher)
             }
